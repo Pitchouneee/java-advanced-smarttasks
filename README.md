@@ -76,12 +76,12 @@ Chaque entreprise dispose de son propre espace de données
 
 # 📅 Planning de la semaine
 
-  Jour           Thèmes principaux                                  Durée
-  -------------- -------------------------------------------------- -------
-  **Lundi**      API REST, structure Spring, JPA                    7h
-  **Mardi**      Sécurité OAuth2, JWT, multi-tenant, Swagger        7h
-  **Mercredi**   Tests unitaires, CI GitHub, Upload MinIO           7h
-  **Jeudi**      Clean Architecture, refacto, microservices, démo   4h
+| Jour         | Thèmes principaux                                                                  | Durée |
+| ------------ | ---------------------------------------------------------------------------------- | ----- |
+| **Lundi**    | API REST avec Spring Boot, structure du projet, JPA                                | 7h    |
+| **Mardi**    | Sécurité OAuth2/JWT, multi-tenant, Swagger/OpenAPI                                 | 7h    |
+| **Mercredi** | Tests unitaires, GitHub Actions (CI), Upload fichiers (MinIO)                      | 7h    |
+| **Jeudi**    | Clean Architecture, refactorings, monolithe vs microservices, démonstration finale | 4h    |
 
 ---
 
