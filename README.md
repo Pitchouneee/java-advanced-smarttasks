@@ -70,6 +70,7 @@ Chaque entreprise dispose de son propre espace de données
      ┣ 📂 projet-back
      ┣ 📂 projet-front
      ┣ 📂 solutions
+     ┣ docker-compose.yaml
      ┗ README.md
 
 ---
