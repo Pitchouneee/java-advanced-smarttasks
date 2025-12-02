@@ -1,66 +1,63 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { CredentialResponse, GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const { login, isAuthenticated } = useAuth();
+  const { loginWithGoogle, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [error, setError] = useState<string | null>(null);
+  const targetPath = (location.state as { from?: string })?.from ?? '/dashboard';
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      navigate(targetPath, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, targetPath]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email && name) {
-      await login(email, name);
-      navigate('/dashboard');
+  const handleSuccess = async (credentialResponse: CredentialResponse) => {
+    setError(null);
+    if (!credentialResponse.credential) {
+      setError('Reponse Google invalide.');
+      return;
     }
+    try {
+      await loginWithGoogle(credentialResponse.credential);
+      navigate(targetPath, { replace: true });
+    } catch {
+      setError('Unable to complete the login. Please try again.');
+    }
+  };
+
+  const handleError = () => {
+    setError('Google login failed. Please try again.');
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center space-y-2">
           <CardTitle className="text-3xl font-bold">SmartTasks</CardTitle>
-          <CardDescription>Connectez-vous pour accéder à votre espace</CardDescription>
+          <CardDescription>Sign in with your Google account.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nom complet</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Jean Dupont"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
+        <CardContent className="space-y-4">
+          {error && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="jean.dupont@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+          )}
+          {!googleClientId ? (
+            <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-900">
+              Set the VITE_GOOGLE_CLIENT_ID variable in your .env file to enable login.
             </div>
-            <Button type="submit" className="w-full">
-              Se connecter
-            </Button>
-          </form>
+          ) : (
+            <div className="flex justify-center">
+              <GoogleLogin onSuccess={handleSuccess} onError={handleError} />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -35,16 +35,16 @@ export default function Projects() {
     try {
       await api.createProject(newProjectName, user.tenantId);
       toast({
-        title: 'Projet créé',
-        description: `Le projet "${newProjectName}" a été créé avec succès.`,
+        title: 'Project created',
+        description: `The project "${newProjectName}" was successfully created.`,
       });
       setNewProjectName('');
       setIsDialogOpen(false);
       loadProjects();
     } catch (error) {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de créer le projet.',
+        title: 'Error',
+        description: 'Unable to create the project.',
         variant: 'destructive',
       });
     }
@@ -54,20 +54,20 @@ export default function Projects() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Projets</h1>
-          <p className="text-muted-foreground">Gérez vos projets</p>
+          <h1 className="text-3xl font-bold">Projects</h1>
+          <p className="text-muted-foreground">Manage your projects</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>Créer un projet</Button>
+            <Button>Create a project</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Nouveau projet</DialogTitle>
+              <DialogTitle>New project</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreateProject} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="project-name">Nom du projet</Label>
+                <Label htmlFor="project-name">Project name</Label>
                 <Input
                   id="project-name"
                   value={newProjectName}
@@ -76,7 +76,7 @@ export default function Projects() {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full">Créer</Button>
+              <Button type="submit" className="w-full">Create</Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -85,7 +85,7 @@ export default function Projects() {
       {projects.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">Aucun projet pour l'instant</p>
+            <p className="text-muted-foreground">No projects for now</p>
           </CardContent>
         </Card>
       ) : (
@@ -98,7 +98,7 @@ export default function Projects() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Créé le {new Date(project.createdAt).toLocaleDateString('fr-FR')}
+                    Created on {new Date(project.createdAt).toLocaleDateString('fr-FR')}
                   </p>
                 </CardContent>
               </Card>

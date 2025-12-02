@@ -1,15 +1,11 @@
-import { Navigate, Outlet, Link } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NavLink } from '@/components/NavLink';
 
 export function AppLayout() {
-  const { user, isAuthenticated, logout } = useAuth();
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  const { user, logout } = useAuth();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -32,14 +28,14 @@ export function AppLayout() {
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 activeClassName="text-foreground font-medium"
               >
-                Projets
+                Projects
               </NavLink>
               <NavLink
                 to="/profile"
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 activeClassName="text-foreground font-medium"
               >
-                Profil
+                Profile
               </NavLink>
             </nav>
           </div>
@@ -55,7 +51,7 @@ export function AppLayout() {
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={logout}>
-              Déconnexion
+              Logout
             </Button>
           </div>
         </div>

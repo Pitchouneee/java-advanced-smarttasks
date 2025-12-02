@@ -6,19 +6,19 @@ export default function Profile() {
   const { user, token } = useAuth();
 
   if (!user) {
-    return <div className="text-center py-12">Non authentifié</div>;
+    return <div className="text-center py-12">Not authenticated</div>;
   }
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-3xl font-bold">Profil</h1>
-        <p className="text-muted-foreground">Informations de votre compte</p>
+        <h1 className="text-3xl font-bold">Profile</h1>
+        <p className="text-muted-foreground">Your account information</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Informations personnelles</CardTitle>
+          <CardTitle>Personal information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
@@ -34,11 +34,11 @@ export default function Profile() {
 
           <div className="border-t pt-4 space-y-2">
             <div>
-              <p className="text-sm font-medium">ID utilisateur</p>
+              <p className="text-sm font-medium">User ID</p>
               <p className="text-sm text-muted-foreground">{user.id}</p>
             </div>
             <div>
-              <p className="text-sm font-medium">Tenant actuel</p>
+              <p className="text-sm font-medium">Current tenant</p>
               <p className="text-sm text-muted-foreground">{user.tenantId}</p>
             </div>
           </div>
@@ -47,7 +47,7 @@ export default function Profile() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Token d'authentification</CardTitle>
+          <CardTitle>Authentication token</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="bg-muted p-3 rounded-md overflow-x-auto">

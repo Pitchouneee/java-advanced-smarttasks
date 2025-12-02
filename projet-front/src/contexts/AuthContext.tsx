@@ -12,12 +12,30 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (email: string, name: string) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => void;
   setTenant: (tenantId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface GoogleIdTokenPayload {
+  sub: string;
+  email: string;
+  name?: string;
+  picture?: string;
+}
+
+function decodeGoogleCredential(credential: string): GoogleIdTokenPayload {
+  const parts = credential.split('.');
+  if (parts.length < 2) {
+    throw new Error('Invalid Google token');
+  }
+  const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+  const payload = atob(padded);
+  return JSON.parse(payload);
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -32,20 +50,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, name: string) => {
-    const mockUser: User = {
-      id: `user_${Date.now()}`,
-      email,
-      name,
-      picture: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
-      tenantId: 'tenant_default',
-    };
-    const mockToken = `mock_jwt_${Date.now()}`;
-    
-    setUser(mockUser);
-    setToken(mockToken);
-    localStorage.setItem('smarttasks_user', JSON.stringify(mockUser));
-    localStorage.setItem('smarttasks_token', mockToken);
+  const loginWithGoogle = async (credential: string) => {
+    try {
+      const payload = decodeGoogleCredential(credential);
+      const googleUser: User = {
+        id: payload.sub,
+        email: payload.email,
+        name: payload.name ?? payload.email,
+        picture: payload.picture,
+        tenantId: 'tenant_default',
+      };
+
+      setUser(googleUser);
+      setToken(credential);
+      localStorage.setItem('smarttasks_user', JSON.stringify(googleUser));
+      localStorage.setItem('smarttasks_token', credential);
+    } catch (error) {
+      console.error('Google login failed', error);
+      throw new Error('Unable to validate Google login.');
+    }
   };
 
   const logout = () => {
@@ -69,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         token,
         isAuthenticated: !!user && !!token,
-        login,
+        loginWithGoogle,
         logout,
         setTenant,
       }}

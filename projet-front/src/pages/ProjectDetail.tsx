@@ -46,55 +46,55 @@ export default function ProjectDetail() {
         user.tenantId
       );
       toast({
-        title: 'Tâche créée',
-        description: `La tâche "${newTask.title}" a été créée avec succès.`,
+        title: 'Task created',
+        description: `The task "${newTask.title}" was successfully created.`,
       });
       setNewTask({ title: '', description: '', dueDate: '' });
       setIsDialogOpen(false);
       loadData();
     } catch (error) {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de créer la tâche.',
+        title: 'Error',
+        description: 'Unable to create the task.',
         variant: 'destructive',
       });
     }
   };
 
   if (!project) {
-    return <div className="text-center py-12">Projet introuvable</div>;
+    return <div className="text-center py-12">Project not found</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
         <Link to="/projects" className="text-sm text-muted-foreground hover:underline">
-          ← Retour aux projets
+          ← Back to projects
         </Link>
         <h1 className="text-3xl font-bold mt-2">{project.name}</h1>
         <p className="text-muted-foreground">
-          Créé le {new Date(project.createdAt).toLocaleDateString('fr-FR')}
+          Created on {new Date(project.createdAt).toLocaleDateString('fr-FR')}
         </p>
       </div>
 
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Tâches</h2>
+        <h2 className="text-xl font-semibold">Tasks</h2>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>Créer une tâche</Button>
+            <Button>Create a task</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Nouvelle tâche</DialogTitle>
+              <DialogTitle>New task</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="task-title">Titre</Label>
+                <Label htmlFor="task-title">Title</Label>
                 <Input
                   id="task-title"
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  placeholder="Titre de la tâche"
+                  placeholder="Task title"
                   required
                 />
               </div>
@@ -104,11 +104,11 @@ export default function ProjectDetail() {
                   id="task-description"
                   value={newTask.description}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  placeholder="Description de la tâche"
+                  placeholder="Task description"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="task-due-date">Date d'échéance</Label>
+                <Label htmlFor="task-due-date">Due date</Label>
                 <Input
                   id="task-due-date"
                   type="date"
@@ -116,7 +116,7 @@ export default function ProjectDetail() {
                   onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
                 />
               </div>
-              <Button type="submit" className="w-full">Créer</Button>
+              <Button type="submit" className="w-full">Create</Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -125,7 +125,7 @@ export default function ProjectDetail() {
       {tasks.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">Aucune tâche pour ce projet</p>
+            <p className="text-muted-foreground">No tasks for this project</p>
           </CardContent>
         </Card>
       ) : (
@@ -142,7 +142,7 @@ export default function ProjectDetail() {
                   )}
                   {task.dueDate && (
                     <p className="text-sm">
-                      Échéance: {new Date(task.dueDate).toLocaleDateString('fr-FR')}
+                      Deadline: {new Date(task.dueDate).toLocaleDateString('fr-FR')}
                     </p>
                   )}
                 </CardContent>

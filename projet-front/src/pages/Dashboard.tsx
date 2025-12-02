@@ -34,14 +34,14 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Bonjour, {user?.name}</h1>
-        <p className="text-muted-foreground">Voici un aperçu de vos projets et tâches</p>
+        <h1 className="text-3xl font-bold">Hello, {user?.name}</h1>
+        <p className="text-muted-foreground">Here is an overview of your projects and tasks</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Projets actifs</CardTitle>
+            <CardTitle className="text-sm font-medium">Active projects</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{projects.length}</div>
@@ -50,7 +50,7 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Tâches totales</CardTitle>
+            <CardTitle className="text-sm font-medium">Total tasks</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{tasks.length}</div>
@@ -59,7 +59,7 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Tâches en retard</CardTitle>
+            <CardTitle className="text-sm font-medium">Overdue tasks</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{overdueTasks.length}</div>
@@ -69,14 +69,14 @@ export default function Dashboard() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Derniers projets</CardTitle>
+          <CardTitle>Latest projects</CardTitle>
           <Button asChild variant="outline" size="sm">
-            <Link to="/projects">Voir tous les projets</Link>
+            <Link to="/projects">View all projects</Link>
           </Button>
         </CardHeader>
         <CardContent>
           {projects.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">Aucun projet pour l'instant</p>
+            <p className="text-muted-foreground text-center py-8">No projects for now</p>
           ) : (
             <div className="space-y-2">
               {projects.slice(-3).reverse().map((project) => (
@@ -87,7 +87,7 @@ export default function Dashboard() {
                 >
                   <div className="font-medium">{project.name}</div>
                   <div className="text-sm text-muted-foreground">
-                    Créé le {new Date(project.createdAt).toLocaleDateString('fr-FR')}
+                    Created on {new Date(project.createdAt).toLocaleDateString('fr-FR')}
                   </div>
                 </Link>
               ))}

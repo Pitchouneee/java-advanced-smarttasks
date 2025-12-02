@@ -50,15 +50,15 @@ export default function TaskDetail() {
     try {
       await api.createAttachment(taskId, selectedFile, user.tenantId);
       toast({
-        title: 'Fichier ajouté',
-        description: `Le fichier "${selectedFile.name}" a été ajouté.`,
+        title: 'File added',
+        description: `The file "${selectedFile.name}" has been added.`,
       });
       setSelectedFile(null);
       loadData();
     } catch (error) {
       toast({
-        title: 'Erreur',
-        description: 'Impossible d\'ajouter le fichier.',
+        title: 'Error',
+        description: 'Unable to add the file.',
         variant: 'destructive',
       });
     } finally {
@@ -76,7 +76,7 @@ export default function TaskDetail() {
   };
 
   if (!task) {
-    return <div className="text-center py-12">Tâche introuvable</div>;
+    return <div className="text-center py-12">Task not found</div>;
   }
 
   return (
@@ -84,7 +84,7 @@ export default function TaskDetail() {
       <div>
         {project && (
           <Link to={`/projects/${project.id}`} className="text-sm text-muted-foreground hover:underline">
-            ← Retour au projet {project.name}
+            ← Back to proect {project.name}
           </Link>
         )}
         <h1 className="text-3xl font-bold mt-2">{task.title}</h1>
@@ -92,7 +92,7 @@ export default function TaskDetail() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Détails</CardTitle>
+          <CardTitle>Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {task.description && (
@@ -103,7 +103,7 @@ export default function TaskDetail() {
           )}
           {task.dueDate && (
             <div>
-              <p className="text-sm font-medium mb-1">Date d'échéance</p>
+              <p className="text-sm font-medium mb-1">Deadline</p>
               <p className="text-muted-foreground">
                 {new Date(task.dueDate).toLocaleDateString('fr-FR')}
               </p>
@@ -114,7 +114,7 @@ export default function TaskDetail() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Pièces jointes</CardTitle>
+          <CardTitle>Attachments</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
@@ -127,12 +127,12 @@ export default function TaskDetail() {
               onClick={handleUpload}
               disabled={!selectedFile || isUploading}
             >
-              {isUploading ? 'Envoi...' : 'Envoyer'}
+              {isUploading ? 'Sending...' : 'Send'}
             </Button>
           </div>
 
           {attachments.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">Aucune pièce jointe</p>
+            <p className="text-muted-foreground text-center py-4">No attachments</p>
           ) : (
             <div className="space-y-2">
               {attachments.map((attachment) => (
@@ -151,7 +151,7 @@ export default function TaskDetail() {
                     size="sm"
                     onClick={() => handleDownload(attachment)}
                   >
-                    Télécharger
+                    Download
                   </Button>
                 </div>
               ))}
