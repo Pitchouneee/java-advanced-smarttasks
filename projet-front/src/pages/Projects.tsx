@@ -72,7 +72,7 @@ export default function Projects() {
                   id="project-name"
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Mon nouveau projet"
+                  placeholder="My new project"
                   required
                 />
               </div>
