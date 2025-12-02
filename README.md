@@ -99,8 +99,7 @@ Chaque séance suit une structure simple et efficace :
 
 Un guide d'installation complet est disponible dans `cours/00-setup.md` .
 
-Requis : - Java 21/25\
-* Maven\
+Requis : - Java 25\
 * Docker Desktop\
 * Node.js\
 * Un IDE (IntelliJ recommandé)
