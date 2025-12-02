@@ -2,38 +2,22 @@
 
 Ce document décrit l’ensemble des prérequis techniques nécessaires pour suivre efficacement le cours Java avancé et développer le projet **SmartTasks**.
 
-L’objectif :
-👉 garantir que tout le monde démarre avec un environnement fonctionnel et homogène.
+🎯 Objectif : garantir que tout le monde démarre avec un environnement fonctionnel et homogène.
 
 ---
 
 # 🧰 1. Outils nécessaires
 
-Vous devez installer :
+> 💡 Vous n’avez pas besoin d’installer manuellement Java ou Maven : **IntelliJ s’en charge automatiquement.**
 
-### ✔️ Java Development Kit (JDK 21 ou 25)
+### ✔️ IntelliJ IDEA (Community recommandé)
 
-Recommandé : **Temurin** (Adoptium)
-
-👉 https://adoptium.net/
-
-Pour vérifier :
-
-```bash
-java -version
-```
-
-### ✔️ Maven (≥ 3.9)
-
-👉 https://maven.apache.org/download.cgi  
-
-```bash
-mvn -version
-```
+👉 https://www.jetbrains.com/idea/download/  
+➡️ Utilisé pour : écrire du code, lancer les projets, télécharger JDK 25 et Maven automatiquement.
 
 ### ✔️ Node.js (≥ 18)
 
-👉 https://nodejs.org/  
+👉 https://nodejs.org/
 
 ```bash
 node -v
@@ -42,24 +26,24 @@ npm -v
 
 ### ✔️ Docker Desktop
 
-👉 https://www.docker.com/products/docker-desktop/  
+👉 https://www.docker.com/products/docker-desktop/
+
+Pour vérifier :
 
 ```bash
 docker run hello-world
 ```
 
-### ✔️ Un IDE Java
-
-Recommandé : IntelliJ IDEA Community  
-👉 https://www.jetbrains.com/idea/download/
-
 ### ✔️ Un client HTTP
 
-Postman / Insomnia / Thunder Client
+Recommandation : **Bruno**  
+👉 https://www.usebruno.com/
+
+Alternatives : Postman / Insomnia / Thunder Client
 
 ### ✔️ Git
 
-👉 https://git-scm.com/  
+👉 https://git-scm.com/
 
 ```bash
 git --version
@@ -70,89 +54,125 @@ git --version
 # 🗄️ 2. Cloner le dépôt du cours
 
 ```bash
-git clone https://github.com/<ton-repo>/smarttasks.git
-cd smarttasks
+git clone https://github.com/Pitchouneee/java-advanced-smarttasks.git
+cd java-advanced-smarttasks
 ```
 
 ---
 
-# 🗃️ 3. Conteneurs nécessaires
+# ⚙️ 3. Préparer le front-end
 
-### PostgreSQL (recommandé)
+Le front React est prêt et configuré pour l’authentification **Google OAuth**.
 
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: smart
-      POSTGRES_PASSWORD: smart
-      POSTGRES_DB: smarttasks
-    ports:
-      - "5432:5432"
+### Étapes :
+
+1. Aller dans : `projet-front`
+2. Copier `.env.example`
+3. Le renommer en `.env`
+4. Renseigner les deux variables :
+
+```env
+VITE_GOOGLE_CLIENT_ID=your_google_oauth_client_id
+VITE_GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
 ```
 
-### MinIO
+### 🔑 Obtenir les identifiants Google OAuth
 
-```yaml
-  minio:
-    image: minio/minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+1. Aller sur : https://console.cloud.google.com/
+2. Menu **API & Services**
+3. Dans la sidebar : **Identifiants**
+4. Bouton **Créer des identifiants** → *ID client OAuth*
+5. Type : **Application Web**
+6. Configurer les URLs :
+
+**Authorized JavaScript origins**
+```
+http://localhost:5173
 ```
 
-Accès console MinIO : http://localhost:9001
+**Authorized redirect URIs**
+```
+http://localhost:5173/signup
+```
+
+7. Cliquer sur **Créer**
+8. Copier le **Client ID** et **Client Secret**
 
 ---
 
-# 🧪 4. Vérification backend Spring Boot
+# 📦 4. Lancer les conteneurs nécessaires
+
+Tout est déjà configuré dans le fichier :
+
+```
+docker-compose.yml
+```
+
+Il contient :
+
+- PostgreSQL  
+- MinIO  
+- Réseaux  
+- Volumes  
+
+Lancer l’environnement :
 
 ```bash
-mvn spring-boot:run
+docker compose up -d
 ```
+
+### Vérifications rapides
+
+| Service | URL |
+|--------|-----|
+| MinIO console | http://localhost:9001 |
 
 ---
 
-# 🧪 5. Vérification front React
+# 🧪 5. Vérification du front React
+
+Dans le dossier `projet-front` :
 
 ```bash
 npm install
 npm run dev
 ```
 
-➡️ http://localhost:5173
+➡️ Lancer l'app sur :  
+http://localhost:5173
 
 ---
 
 # 🔗 6. Structure du projet attendue
 
 ```
-📦 smarttasks
+📦 java-advanced-smarttasks
  ┣ 📂 cours
  ┣ 📂 projet-back
  ┣ 📂 projet-front
  ┣ 📂 solutions
+ ┣ 📄 docker-compose.yml
  ┗ README.md
 ```
 
 ---
 
-# 💡 7. Problèmes courants
-* `JAVA_HOME not found` → ajouter variable d’environnement  
-* Docker ne démarre pas → vérifier virtualisation  
-* Ports déjà utilisés → modifier dans docker-compose  
-* Maven non détecté → IntelliJ > Invalidate caches
+# 💡 7. Problèmes fréquents et solutions
+
+| Problème | Solution |
+|----------|----------|
+| `JAVA_HOME not found` | IntelliJ > Settings > Build Tools > Maven > SDK |
+| Docker ne démarre pas | Activer la virtualisation dans le BIOS |
+| Port déjà utilisé | Modifier les ports dans `docker-compose.yml` |
+| Maven non détecté | Ouvrir avec IntelliJ, qui télécharge Maven automatiquement |
+| Login OAuth impossible | Vérifier les URLs Google (origins + redirect URIs) |
+| Erreur MinIO auth | Vérifier user/password dans `docker-compose.yml` |
 
 ---
 
 # 🎉 Vous êtes prêts !
 
-Passez maintenant au module :  
-**01 – API REST & Spring Boot**
+Passez maintenant au module suivant :  
+👉 **01 – API REST & Spring Boot**
 
-Bonne installation 🚀
+Bon courage et bon code 🚀
