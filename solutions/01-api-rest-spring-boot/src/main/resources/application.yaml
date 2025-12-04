@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: smarttasks
+  datasource:
+    url: jdbc:postgresql://localhost:5432/smarttasks
+    username: smart
+    password: smart
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true

@@ -49,14 +49,14 @@ Voici la configuration recommandée :
 
 ## 2. 🧱 Structure d’un projet Spring Boot
 
-Spring Boot vous aide à organiser automatiquement votre projet. Voici l’architecture typique :
+Spring Boot vous aide à organiser automatiquement votre projet. Voici une architecture typique par couche :
 
 ```
 src/main/java/fr/corentinbringer/smarttasks
  ┣ 📂 controller        # Entrée de l’API (REST Controllers)
  ┣ 📂 service           # Logique métier
  ┣ 📂 repository        # Accès à la base de données (DAO)
- ┣ 📂 domain            # Modèles de données (entités)
+ ┣ 📂 model             # Modèles de données (entités)
  ┗ SmartTasksApplication.java
 ```
 
@@ -67,7 +67,7 @@ Cette séparation respecte un principe fondamental : **la séparation des respon
 | Controller    | Gère les requêtes HTTP (GET, POST, etc.)                         |
 | Service       | Contient la logique métier de l’application                      |
 | Repository    | Dialogue avec la base de données (via Spring Data JPA)           |
-| Domain        | Représente les objets du modèle (ex : `Project`, `Task`, etc.)   |
+| Model         | Représente les objets du modèle (ex : `Project`, `Task`, etc.)   |
 
 > ⚠️ Les controllers ne doivent contenir **aucune logique métier** : ce sont juste des "passerelles" entre le web et votre application.
 > 🧼 Cette séparation permet un code **modulaire**, **testable** et **maintenable**.
@@ -181,14 +181,14 @@ Créez `service/ProjectService.java` :
 @RequiredArgsConstructor
 public class ProjectService {
 
-    private final ProjectRepository repository;
+    private final ProjectRepository projectRepository;
 
     public List<Project> findAll() {
-        return repository.findAll();
+        return projectRepository.findAll();
     }
 
     public Project create(String name) {
-        return repository.save(new Project(null, name));
+        return projectRepository.save(new Project(null, name));
     }
 }
 ```
@@ -222,16 +222,16 @@ On pourrait par exemple ici :
 @RequiredArgsConstructor
 public class ProjectController {
 
-    private final ProjectService service;
+    private final ProjectService projectService;
 
     @GetMapping
     public List<Project> findAll() {
-        return service.findAll();
+        return projectService.findAll();
     }
 
     @PostMapping
     public Project create(@RequestBody Map<String, String> body) {
-        return service.create(body.get("name"));
+        return projectService.create(body.get("name"));
     }
 }
 ```
@@ -268,7 +268,7 @@ spring:
 
 ## 9. 🛡️ Gestion des erreurs
 
-Créez `controller/ApiExceptionHandler.java` :
+Créez `exception/ApiExceptionHandler.java` :
 
 ```java
 @RestControllerAdvice
