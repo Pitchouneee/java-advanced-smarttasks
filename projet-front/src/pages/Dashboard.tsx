@@ -87,7 +87,7 @@ export default function Dashboard() {
                 >
                   <div className="font-medium">{project.name}</div>
                   <div className="text-sm text-muted-foreground">
-                    Created on {new Date(project.createdAt).toLocaleDateString('fr-FR')}
+                    Created on {new Date(project.createdOn).toLocaleDateString('fr-FR')}
                   </div>
                 </Link>
               ))}

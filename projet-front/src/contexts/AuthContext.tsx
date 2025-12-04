@@ -48,6 +48,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(JSON.parse(storedUser));
       setToken(storedToken);
     }
+
+    const handleForcedLogout = () => {
+      logout();
+    };
+
+    window.addEventListener('smarttasks:logout', handleForcedLogout);
+    return () => {
+      window.removeEventListener('smarttasks:logout', handleForcedLogout);
+    };
   }, []);
 
   const loginWithGoogle = async (credential: string) => {

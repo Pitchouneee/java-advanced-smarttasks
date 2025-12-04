@@ -30,13 +30,23 @@ export default function Projects() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newProjectName.trim()) return;
+    const trimmedName = newProjectName.trim();
+    if (!user || !trimmedName) return;
+    if (trimmedName.length < 3 || trimmedName.length > 50) {
+      toast({
+        title: 'Invalid name',
+        description: 'Project name must be between 3 and 50 characters.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     try {
-      await api.createProject(newProjectName, user.tenantId);
+      await api.createProject(trimmedName, user.tenantId);
       toast({
         title: 'Project created',
-        description: `The project "${newProjectName}" was successfully created.`,
+        description: `The project "${trimmedName}" was successfully created.`,
+        variant: 'success',
       });
       setNewProjectName('');
       setIsDialogOpen(false);
@@ -98,7 +108,7 @@ export default function Projects() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Created on {new Date(project.createdAt).toLocaleDateString('fr-FR')}
+                    Created on {new Date(project.createdOn).toLocaleDateString('fr-FR')}
                   </p>
                 </CardContent>
               </Card>

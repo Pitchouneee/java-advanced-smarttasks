@@ -73,7 +73,7 @@ export default function ProjectDetail() {
         </Link>
         <h1 className="text-3xl font-bold mt-2">{project.name}</h1>
         <p className="text-muted-foreground">
-          Created on {new Date(project.createdAt).toLocaleDateString('fr-FR')}
+          Created on {new Date(project.createdOn).toLocaleDateString('fr-FR')}
         </p>
       </div>
 
