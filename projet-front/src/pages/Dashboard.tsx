@@ -18,12 +18,12 @@ export default function Dashboard() {
 
   const loadData = async () => {
     if (!user) return;
-    const allProjects = await api.getProjects(user.tenantId);
+    const allProjects = await api.getProjects();
     setProjects(allProjects);
 
     const allTasks: Task[] = [];
     for (const project of allProjects) {
-      const projectTasks = await api.getTasks(project.id, user.tenantId);
+      const projectTasks = await api.getTasks(project.id);
       allTasks.push(...projectTasks);
     }
     setTasks(allTasks);

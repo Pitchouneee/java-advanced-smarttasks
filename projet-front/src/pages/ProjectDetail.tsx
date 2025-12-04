@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useAuth();
@@ -18,19 +20,60 @@ export default function ProjectDetail() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '' });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user && projectId) {
-      loadData();
-    }
-  }, [user, projectId]);
+    if (!projectId) return;
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
+  }, [projectId, user?.tenantId]);
 
-  const loadData = async () => {
-    if (!user || !projectId) return;
-    const projectData = await api.getProject(projectId, user.tenantId);
-    setProject(projectData);
-    const tasksData = await api.getTasks(projectId, user.tenantId);
-    setTasks(tasksData);
+  const loadData = async (signal?: AbortSignal) => {
+    if (!projectId) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const base = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+      const token = localStorage.getItem('smarttasks_token');
+
+      const response = await fetch(`${base}/api/projects/${projectId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        signal,
+      });
+
+      if (response.status === 404) {
+        setProject(null);
+        setTasks([]);
+        setError('Project not found.');
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch project (${response.status})`);
+      }
+
+      const projectData: Project = await response.json();
+      setProject(projectData);
+
+      if (user) {
+        const tasksData = await api.getTasks(projectId, user.tenantId);
+        setTasks(tasksData);
+      } else {
+        setTasks([]);
+      }
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
+      setError('Unable to load the project. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCreateTask = async (e: React.FormEvent) => {
@@ -60,6 +103,14 @@ export default function ProjectDetail() {
       });
     }
   };
+
+  if (isLoading) {
+    return <div className="text-center py-12">Loading project...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-12 text-destructive">{error}</div>;
+  }
 
   if (!project) {
     return <div className="text-center py-12">Project not found</div>;

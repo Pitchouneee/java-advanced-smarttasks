@@ -5,7 +5,6 @@ interface User {
   email: string;
   name: string;
   picture?: string;
-  tenantId: string;
 }
 
 interface AuthContextType {
@@ -14,7 +13,6 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => void;
-  setTenant: (tenantId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,8 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: payload.sub,
         email: payload.email,
         name: payload.name ?? payload.email,
-        picture: payload.picture,
-        tenantId: 'tenant_default',
+        picture: payload.picture
       };
 
       setUser(googleUser);
@@ -87,14 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('smarttasks_token');
   };
 
-  const setTenant = (tenantId: string) => {
-    if (user) {
-      const updatedUser = { ...user, tenantId };
-      setUser(updatedUser);
-      localStorage.setItem('smarttasks_user', JSON.stringify(updatedUser));
-    }
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -102,8 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isAuthenticated: !!user && !!token,
         loginWithGoogle,
-        logout,
-        setTenant,
+        logout
       }}
     >
       {children}

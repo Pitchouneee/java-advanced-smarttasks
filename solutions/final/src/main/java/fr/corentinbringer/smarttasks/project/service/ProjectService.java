@@ -1,5 +1,6 @@
 package fr.corentinbringer.smarttasks.project.service;
 
+import fr.corentinbringer.smarttasks.configuration.tenant.TenantContext;
 import fr.corentinbringer.smarttasks.project.model.Project;
 import fr.corentinbringer.smarttasks.project.model.ProjectCreateRequest;
 import fr.corentinbringer.smarttasks.project.model.ProjectListResponse;
@@ -16,12 +17,14 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
 
     public List<ProjectListResponse> findAll() {
-        return projectRepository.findAllList();
+        String tenantId = TenantContext.getTenant();
+        return projectRepository.findAllListByTenantId(tenantId);
     }
 
     public Project create(ProjectCreateRequest request) {
         Project project = new Project();
         project.setName(request.name());
+        project.setTenantId(TenantContext.getTenant());
         return projectRepository.save(project);
     }
 }

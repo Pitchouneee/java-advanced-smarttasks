@@ -20,6 +20,9 @@ public class Project {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(updatable = false, nullable = false)
+    private String tenantId;
+
     @Column(length = 50)
     private String name;
 

@@ -24,7 +24,7 @@ export default function Projects() {
 
   const loadProjects = async () => {
     if (!user) return;
-    const data = await api.getProjects(user.tenantId);
+    const data = await api.getProjects();
     setProjects(data);
   };
 
@@ -42,7 +42,7 @@ export default function Projects() {
     }
 
     try {
-      await api.createProject(trimmedName, user.tenantId);
+      await api.createProject(trimmedName);
       toast({
         title: 'Project created',
         description: `The project "${trimmedName}" was successfully created.`,

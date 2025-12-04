@@ -37,10 +37,6 @@ export default function Profile() {
               <p className="text-sm font-medium">User ID</p>
               <p className="text-sm text-muted-foreground">{user.id}</p>
             </div>
-            <div>
-              <p className="text-sm font-medium">Current tenant</p>
-              <p className="text-sm text-muted-foreground">{user.tenantId}</p>
-            </div>
           </div>
         </CardContent>
       </Card>

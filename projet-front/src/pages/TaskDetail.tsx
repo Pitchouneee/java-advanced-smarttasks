@@ -29,7 +29,7 @@ export default function TaskDetail() {
     setTask(taskData);
     
     if (taskData) {
-      const projectData = await api.getProject(taskData.projectId, user.tenantId);
+      const projectData = await api.getProject(taskData.projectId);
       setProject(projectData);
     }
 

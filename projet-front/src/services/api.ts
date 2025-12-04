@@ -4,7 +4,7 @@ export interface ProjectListResponse {
   createdOn: string;
 }
 
-export type Project = ProjectListResponse & { tenantId?: string };
+export type Project = ProjectListResponse;
 
 export interface ProjectCreateRequest {
   name: string;
@@ -16,7 +16,6 @@ export interface Task {
   title: string;
   description: string;
   dueDate?: string;
-  tenantId: string;
   createdAt: string;
 }
 
@@ -45,40 +44,32 @@ class ApiService {
     window.dispatchEvent(new Event('smarttasks:logout'));
   }
 
-  private getStorageKey(key: string, tenantId: string) {
-    return `smarttasks_${tenantId}_${key}`;
+  private getStorageKey(key: string) {
+    return `smarttasks_${key}`;
   }
 
-  private getData<T>(key: string, tenantId: string): T[] {
-    const data = localStorage.getItem(this.getStorageKey(key, tenantId));
+  private getData<T>(key: string): T[] {
+    const data = localStorage.getItem(this.getStorageKey(key));
     return data ? JSON.parse(data) : [];
   }
 
-  private setData<T>(key: string, tenantId: string, data: T[]) {
-    localStorage.setItem(this.getStorageKey(key, tenantId), JSON.stringify(data));
+  private setData<T>(key: string, data: T[]) {
+    localStorage.setItem(this.getStorageKey(key), JSON.stringify(data));
   }
 
   private buildUrl(path: string, params?: Record<string, string | undefined>) {
     const base = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
     const fullPath = path.startsWith('/') ? path : `/${path}`;
-    const searchParams = params
-      ? new URLSearchParams(
-          Object.entries(params).filter(([, value]) => value !== undefined),
-        )
-      : null;
-
-    const queryString = searchParams && searchParams.toString();
-    return `${base}${fullPath}${queryString ? `?${queryString}` : ''}`;
+    return `${base}${fullPath}`;
   }
 
   private async request<T>(
     path: string,
     options: RequestInit = {},
-    params?: Record<string, string | undefined>,
     allowNotFound = false,
   ): Promise<T> {
     const token = this.getAuthToken();
-    const response = await fetch(this.buildUrl(path, params), {
+    const response = await fetch(this.buildUrl(path), {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -107,20 +98,19 @@ class ApiService {
     return response.json() as Promise<T>;
   }
 
-  async getProjects(tenantId: string): Promise<Project[]> {
-    return this.request<ProjectListResponse[]>('/api/projects', { method: 'GET' }, { tenantId });
+  async getProjects(): Promise<Project[]> {
+    return this.request<ProjectListResponse[]>('/api/projects', { method: 'GET' });
   }
 
-  async getProject(id: string, tenantId: string): Promise<Project | null> {
+  async getProject(id: string): Promise<Project | null> {
     return this.request<Project | null>(
       `/api/projects/${id}`,
       { method: 'GET' },
-      { tenantId },
       true,
     );
   }
 
-  async createProject(name: string, tenantId: string): Promise<Project> {
+  async createProject(name: string): Promise<Project> {
     const payload: ProjectCreateRequest = { name };
     return this.request<Project>(
       '/api/projects',
@@ -128,43 +118,41 @@ class ApiService {
         method: 'POST',
         body: JSON.stringify(payload),
       },
-      { tenantId },
     );
   }
 
-  async getTasks(projectId: string, tenantId: string): Promise<Task[]> {
-    const tasks = this.getData<Task>('tasks', tenantId);
+  async getTasks(projectId: string): Promise<Task[]> {
+    const tasks = this.getData<Task>('tasks');
     return tasks.filter(t => t.projectId === projectId);
   }
 
-  async getTask(id: string, tenantId: string): Promise<Task | null> {
-    const tasks = this.getData<Task>('tasks', tenantId);
+  async getTask(id: string): Promise<Task | null> {
+    const tasks = this.getData<Task>('tasks');
     return tasks.find(t => t.id === id) || null;
   }
 
-  async createTask(projectId: string, title: string, description: string, dueDate: string | undefined, tenantId: string): Promise<Task> {
-    const tasks = this.getData<Task>('tasks', tenantId);
+  async createTask(projectId: string, title: string, description: string, dueDate: string | undefined): Promise<Task> {
+    const tasks = this.getData<Task>('tasks');
     const newTask: Task = {
       id: `task_${Date.now()}`,
       projectId,
       title,
       description,
       dueDate,
-      tenantId,
       createdAt: new Date().toISOString(),
     };
     tasks.push(newTask);
-    this.setData('tasks', tenantId, tasks);
+    this.setData('tasks', tasks);
     return newTask;
   }
 
-  async getAttachments(taskId: string, tenantId: string): Promise<Attachment[]> {
-    const attachments = this.getData<Attachment>('attachments', tenantId);
+  async getAttachments(taskId: string): Promise<Attachment[]> {
+    const attachments = this.getData<Attachment>('attachments');
     return attachments.filter(a => a.taskId === taskId);
   }
 
-  async createAttachment(taskId: string, file: File, tenantId: string): Promise<Attachment> {
-    const attachments = this.getData<Attachment>('attachments', tenantId);
+  async createAttachment(taskId: string, file: File): Promise<Attachment> {
+    const attachments = this.getData<Attachment>('attachments');
     
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -179,7 +167,7 @@ class ApiService {
           createdAt: new Date().toISOString(),
         };
         attachments.push(newAttachment);
-        this.setData('attachments', tenantId, attachments);
+        this.setData('attachments', attachments);
         resolve(newAttachment);
       };
       reader.onerror = reject;
