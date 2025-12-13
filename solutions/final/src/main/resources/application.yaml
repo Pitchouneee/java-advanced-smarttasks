@@ -14,3 +14,8 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: https://accounts.google.com
+minio:
+  url: http://localhost:9000
+  accessKey: admin
+  secretKey: password
+  bucketName: smarttasks

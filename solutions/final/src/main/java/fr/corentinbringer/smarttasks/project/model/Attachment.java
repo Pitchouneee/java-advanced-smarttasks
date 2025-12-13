@@ -7,15 +7,14 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 
 @Entity
-@Table(name = "projects")
+@Table(name = "attachments")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Project {
+public class Attachment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,17 +23,27 @@ public class Project {
     @Column(updatable = false, nullable = false)
     private String tenantId;
 
-    @Column(length = 50)
-    private String name;
+    @Column(nullable = false)
+    private String objectKey;
+
+    @Column(nullable = false)
+    private String originalName;
+
+    @Column(nullable = false)
+    private String mimeType;
+
+    @Column(nullable = false)
+    private long size;
 
     @Column(updatable = false, nullable = false)
-    private LocalDateTime createdOn;
+    private LocalDateTime uploadedOn;
 
-    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<Task> tasks;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_id", nullable = false)
+    private Task task;
 
     @PrePersist
     protected void onCreate() {
-        this.createdOn = LocalDateTime.now();
+        this.uploadedOn = LocalDateTime.now();
     }
 }

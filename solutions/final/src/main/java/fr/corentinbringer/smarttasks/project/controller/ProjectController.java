@@ -3,6 +3,7 @@ package fr.corentinbringer.smarttasks.project.controller;
 import fr.corentinbringer.smarttasks.project.model.Project;
 import fr.corentinbringer.smarttasks.project.model.ProjectCreateRequest;
 import fr.corentinbringer.smarttasks.project.model.ProjectListResponse;
+import fr.corentinbringer.smarttasks.project.model.ProjectResponse;
 import fr.corentinbringer.smarttasks.project.service.ProjectService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,12 @@ public class ProjectController {
     }
 
     @PostMapping
-    public Project create(@Valid @RequestBody ProjectCreateRequest request) {
+    public ProjectResponse create(@Valid @RequestBody ProjectCreateRequest request) {
         return projectService.create(request);
+    }
+
+    @GetMapping("/{id}")
+    public ProjectResponse findById(@PathVariable Long id) {
+        return projectService.findByIdResponse(id);
     }
 }

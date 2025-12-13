@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+
 export default function TaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { toast } = useToast();
   const [task, setTask] = useState<Task | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -25,16 +27,30 @@ export default function TaskDetail() {
 
   const loadData = async () => {
     if (!user || !taskId) return;
-    const taskData = await api.getTask(taskId, user.tenantId);
-    setTask(taskData);
-    
-    if (taskData) {
-      const projectData = await api.getProject(taskData.projectId);
-      setProject(projectData);
-    }
+    try {
+      const taskData = await api.getTask(taskId);
+      setTask(taskData);
 
-    const attachmentsData = await api.getAttachments(taskId, user.tenantId);
-    setAttachments(attachmentsData);
+      if (!taskData) {
+        setProject(null);
+        setAttachments([]);
+        return;
+      }
+
+      const [projectData, attachmentsData] = await Promise.all([
+        api.getProject(taskData.projectId),
+        api.getAttachments(taskId),
+      ]);
+
+      setProject(projectData);
+      setAttachments(attachmentsData);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Unable to load the task details.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,11 +60,11 @@ export default function TaskDetail() {
   };
 
   const handleUpload = async () => {
-    if (!user || !taskId || !selectedFile) return;
+    if (!task || !selectedFile) return;
 
     setIsUploading(true);
     try {
-      await api.createAttachment(taskId, selectedFile, user.tenantId);
+      await api.createAttachment(task.id, selectedFile);
       toast({
         title: 'File added',
         description: `The file "${selectedFile.name}" has been added.`,
@@ -66,13 +82,40 @@ export default function TaskDetail() {
     }
   };
 
-  const handleDownload = (attachment: Attachment) => {
-    const link = document.createElement('a');
-    link.href = attachment.data;
-    link.download = attachment.originalName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async (attachment: Attachment) => {
+    const downloadPath = `/api/attachments/${attachment.id}/download`;
+    const base = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    const url = `${base}${downloadPath}`;
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = attachment.originalName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      toast({
+        title: 'Download unavailable',
+        description: 'Unable to download the file. Please check your session and try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (!task) {
@@ -125,7 +168,7 @@ export default function TaskDetail() {
             />
             <Button
               onClick={handleUpload}
-              disabled={!selectedFile || isUploading}
+              disabled={!selectedFile || isUploading || !task}
             >
               {isUploading ? 'Sending...' : 'Send'}
             </Button>

@@ -28,7 +28,7 @@ export default function ProjectDetail() {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [projectId, user?.tenantId]);
+  }, [projectId]);
 
   const loadData = async (signal?: AbortSignal) => {
     if (!projectId) return;
@@ -63,7 +63,7 @@ export default function ProjectDetail() {
       setProject(projectData);
 
       if (user) {
-        const tasksData = await api.getTasks(projectId, user.tenantId);
+        const tasksData = await api.getTasks(projectId);
         setTasks(tasksData);
       } else {
         setTasks([]);
@@ -85,8 +85,7 @@ export default function ProjectDetail() {
         projectId,
         newTask.title,
         newTask.description,
-        newTask.dueDate || undefined,
-        user.tenantId
+        newTask.dueDate || undefined
       );
       toast({
         title: 'Task created',
