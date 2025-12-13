@@ -7,9 +7,10 @@ import fr.corentinbringer.smarttasks.project.model.ProjectListResponse;
 import fr.corentinbringer.smarttasks.project.model.ProjectResponse;
 import fr.corentinbringer.smarttasks.project.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.NoSuchElementException;
 
 @Service
@@ -18,9 +19,9 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
 
-    public List<ProjectListResponse> findAll() {
+    public Page<ProjectListResponse> findAll(Pageable pageable) {
         String tenantId = TenantContext.getTenant();
-        return projectRepository.findAllListByTenantId(tenantId);
+        return projectRepository.findAllListByTenantId(tenantId, pageable);
     }
 
     public ProjectResponse create(ProjectCreateRequest request) {

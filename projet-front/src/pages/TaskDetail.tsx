@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+const ATTACHMENT_PAGE_SIZE = 10;
 
 export default function TaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -16,16 +17,19 @@ export default function TaskDetail() {
   const [task, setTask] = useState<Task | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachmentPage, setAttachmentPage] = useState(0);
+  const [attachmentTotalPages, setAttachmentTotalPages] = useState(0);
+  const [attachmentTotalElements, setAttachmentTotalElements] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (user && taskId) {
-      loadData();
+      loadData(attachmentPage);
     }
-  }, [user, taskId]);
+  }, [user, taskId, attachmentPage]);
 
-  const loadData = async () => {
+  const loadData = async (page: number) => {
     if (!user || !taskId) return;
     try {
       const taskData = await api.getTask(taskId);
@@ -34,16 +38,21 @@ export default function TaskDetail() {
       if (!taskData) {
         setProject(null);
         setAttachments([]);
+        setAttachmentTotalPages(0);
+        setAttachmentTotalElements(0);
         return;
       }
 
       const [projectData, attachmentsData] = await Promise.all([
         api.getProject(taskData.projectId),
-        api.getAttachments(taskId),
+        api.getAttachments(taskId, page, ATTACHMENT_PAGE_SIZE),
       ]);
 
       setProject(projectData);
-      setAttachments(attachmentsData);
+      setAttachments(attachmentsData.content);
+      setAttachmentPage(attachmentsData.number);
+      setAttachmentTotalPages(attachmentsData.totalPages);
+      setAttachmentTotalElements(attachmentsData.totalElements);
     } catch (error) {
       toast({
         title: 'Error',
@@ -70,7 +79,8 @@ export default function TaskDetail() {
         description: `The file "${selectedFile.name}" has been added.`,
       });
       setSelectedFile(null);
-      loadData();
+      setAttachmentPage(0);
+      loadData(0);
     } catch (error) {
       toast({
         title: 'Error',
@@ -200,6 +210,30 @@ export default function TaskDetail() {
               ))}
             </div>
           )}
+
+          <div className="flex items-center justify-between border rounded-lg px-3 py-2">
+            <div className="text-sm text-muted-foreground">
+              Page {attachmentPage + 1} of {Math.max(attachmentTotalPages, 1)} • {attachmentTotalElements} attachment{attachmentTotalElements === 1 ? '' : 's'}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAttachmentPage((p) => Math.max(p - 1, 0))}
+                disabled={attachmentPage === 0}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAttachmentPage((p) => Math.min(p + 1, attachmentTotalPages - 1))}
+                disabled={attachmentPage >= attachmentTotalPages - 1 || attachmentTotalPages === 0}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

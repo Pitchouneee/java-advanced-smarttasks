@@ -6,9 +6,9 @@ import fr.corentinbringer.smarttasks.project.model.TaskResponse;
 import fr.corentinbringer.smarttasks.project.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/projects/{projectId}/tasks")
@@ -18,8 +18,8 @@ public class TaskInProjectController {
     private final TaskService taskService;
 
     @GetMapping
-    public List<TaskListResponse> findAll(@PathVariable Long projectId) {
-        return taskService.findAllByProjectId(projectId);
+    public Page<TaskListResponse> findAll(@PathVariable Long projectId, Pageable pageable) {
+        return taskService.findAllByProjectId(projectId, pageable);
     }
 
     @PostMapping

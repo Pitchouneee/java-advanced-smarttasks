@@ -28,7 +28,19 @@ export interface Attachment {
    * Relative or absolute endpoint to download the file.
    */
   data: string;
-  createdAt: string;
+  createdAt?: string;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  empty: boolean;
+  first: boolean;
+  last: boolean;
+  number: number;
+  numberOfElements: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
@@ -46,16 +58,25 @@ class ApiService {
     window.dispatchEvent(new Event('smarttasks:logout'));
   }
 
-  private buildUrl(path: string, params?: Record<string, string | undefined>) {
+  private buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>) {
     const base = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
     const fullPath = path.startsWith('/') ? path : `/${path}`;
-    return `${base}${fullPath}`;
+
+    const searchParams = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value === undefined) return;
+      searchParams.append(key, String(value));
+    });
+
+    const query = searchParams.toString();
+    return query ? `${base}${fullPath}?${query}` : `${base}${fullPath}`;
   }
 
   private async request<T>(
     path: string,
     options: RequestInit = {},
     allowNotFound = false,
+    query?: Record<string, string | number | boolean | undefined>,
   ): Promise<T> {
     const token = this.getAuthToken();
     const isFormData = options.body instanceof FormData;
@@ -68,7 +89,7 @@ class ApiService {
       headers['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(this.buildUrl(path), {
+    const response = await fetch(this.buildUrl(path, query), {
       ...options,
       headers,
     });
@@ -93,8 +114,13 @@ class ApiService {
     return response.json() as Promise<T>;
   }
 
-  async getProjects(): Promise<Project[]> {
-    return this.request<ProjectListResponse[]>('/api/projects', { method: 'GET' });
+  async getProjects(page = 0, size = 20): Promise<PageResponse<Project>> {
+    return this.request<PageResponse<Project>>(
+      '/api/projects',
+      { method: 'GET' },
+      false,
+      { page, size },
+    );
   }
 
   async getProject(id: string): Promise<Project | null> {
@@ -116,8 +142,13 @@ class ApiService {
     );
   }
 
-  async getTasks(projectId: string): Promise<Task[]> {
-    return this.request<Task[]>(`/api/projects/${projectId}/tasks`, { method: 'GET' });
+  async getTasks(projectId: string, page = 0, size = 20): Promise<PageResponse<Task>> {
+    return this.request<PageResponse<Task>>(
+      `/api/projects/${projectId}/tasks`,
+      { method: 'GET' },
+      false,
+      { page, size },
+    );
   }
 
   async getTask(id: string): Promise<Task | null> {
@@ -140,8 +171,13 @@ class ApiService {
     );
   }
 
-  async getAttachments(taskId: string): Promise<Attachment[]> {
-    return this.request<Attachment[]>(`/api/tasks/${taskId}/attachments`, { method: 'GET' });
+  async getAttachments(taskId: string, page = 0, size = 20): Promise<PageResponse<Attachment>> {
+    return this.request<PageResponse<Attachment>>(
+      `/api/tasks/${taskId}/attachments`,
+      { method: 'GET' },
+      false,
+      { page, size },
+    );
   }
 
   async createAttachment(taskId: string, file: File): Promise<Attachment> {

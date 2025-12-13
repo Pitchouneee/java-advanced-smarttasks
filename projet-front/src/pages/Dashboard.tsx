@@ -9,6 +9,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [totalProjects, setTotalProjects] = useState(0);
+  const [totalTasks, setTotalTasks] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -18,15 +20,17 @@ export default function Dashboard() {
 
   const loadData = async () => {
     if (!user) return;
-    const allProjects = await api.getProjects();
-    setProjects(allProjects);
+    const projectPage = await api.getProjects(0, 6);
+    setProjects(projectPage.content);
+    setTotalProjects(projectPage.totalElements);
 
-    const allTasks: Task[] = [];
-    for (const project of allProjects) {
-      const projectTasks = await api.getTasks(project.id);
-      allTasks.push(...projectTasks);
-    }
-    setTasks(allTasks);
+    const projectTasks = await Promise.all(
+      projectPage.content.map((project) => api.getTasks(project.id, 0, 10))
+    );
+    const combinedTasks = projectTasks.flatMap((page) => page.content);
+    const combinedTotal = projectTasks.reduce((sum, page) => sum + page.totalElements, 0);
+    setTasks(combinedTasks);
+    setTotalTasks(combinedTotal);
   };
 
   const overdueTasks = tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
@@ -44,7 +48,7 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium">Active projects</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{projects.length}</div>
+            <div className="text-2xl font-bold">{totalProjects}</div>
           </CardContent>
         </Card>
 
@@ -53,7 +57,7 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium">Total tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{tasks.length}</div>
+            <div className="text-2xl font-bold">{totalTasks}</div>
           </CardContent>
         </Card>
 

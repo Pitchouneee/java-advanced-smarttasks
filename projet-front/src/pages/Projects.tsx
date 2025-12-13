@@ -9,23 +9,37 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
+const PAGE_SIZE = 9;
+
 export default function Projects() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
 
   useEffect(() => {
     if (user) {
-      loadProjects();
+      loadProjects(page);
     }
-  }, [user]);
+  }, [page, user]);
 
-  const loadProjects = async () => {
+  const loadProjects = async (pageToLoad: number) => {
     if (!user) return;
-    const data = await api.getProjects();
-    setProjects(data);
+    setIsLoading(true);
+    try {
+      const data = await api.getProjects(pageToLoad, PAGE_SIZE);
+      setProjects(data.content);
+      setPage(data.number);
+      setTotalPages(data.totalPages);
+      setTotalElements(data.totalElements);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -50,7 +64,8 @@ export default function Projects() {
       });
       setNewProjectName('');
       setIsDialogOpen(false);
-      loadProjects();
+      setPage(0);
+      loadProjects(0);
     } catch (error) {
       toast({
         title: 'Error',
@@ -95,7 +110,7 @@ export default function Projects() {
       {projects.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No projects for now</p>
+            <p className="text-muted-foreground">{isLoading ? 'Loading projects...' : 'No projects for now'}</p>
           </CardContent>
         </Card>
       ) : (
@@ -116,6 +131,30 @@ export default function Projects() {
           ))}
         </div>
       )}
+
+      <div className="flex items-center justify-between border rounded-lg px-4 py-3">
+        <div className="text-sm text-muted-foreground">
+          Page {page + 1} of {Math.max(totalPages, 1)} • {totalElements} project{totalElements === 1 ? '' : 's'}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(p - 1, 0))}
+            disabled={page === 0 || isLoading}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
+            disabled={page >= totalPages - 1 || isLoading || totalPages === 0}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -5,10 +5,10 @@ import fr.corentinbringer.smarttasks.project.model.TaskResponse;
 import fr.corentinbringer.smarttasks.project.service.AttachmentService;
 import fr.corentinbringer.smarttasks.project.service.TaskService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -24,8 +24,8 @@ public class TaskController {
     }
 
     @GetMapping("/{id}/attachments")
-    public List<AttachmentResponse> findAttachmentsByTaskId(@PathVariable Long id) {
-        return attachmentService.findAllByTaskId(id);
+    public Page<AttachmentResponse> findAttachmentsByTaskId(@PathVariable Long id, Pageable pageable) {
+        return attachmentService.findAllByTaskId(id, pageable);
     }
 
     @PostMapping("/{id}/attachments")

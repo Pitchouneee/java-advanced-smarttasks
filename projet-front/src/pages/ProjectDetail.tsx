@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from '@/hooks/use-toast';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+const TASK_PAGE_SIZE = 10;
 
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -18,6 +19,9 @@ export default function ProjectDetail() {
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskPage, setTaskPage] = useState(0);
+  const [taskTotalPages, setTaskTotalPages] = useState(0);
+  const [taskTotalElements, setTaskTotalElements] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '' });
   const [isLoading, setIsLoading] = useState(true);
@@ -26,11 +30,11 @@ export default function ProjectDetail() {
   useEffect(() => {
     if (!projectId) return;
     const controller = new AbortController();
-    loadData(controller.signal);
+    loadData(taskPage, controller.signal);
     return () => controller.abort();
-  }, [projectId]);
+  }, [projectId, taskPage]);
 
-  const loadData = async (signal?: AbortSignal) => {
+  const loadData = async (page: number, signal?: AbortSignal) => {
     if (!projectId) return;
     setIsLoading(true);
     setError(null);
@@ -51,6 +55,8 @@ export default function ProjectDetail() {
       if (response.status === 404) {
         setProject(null);
         setTasks([]);
+        setTaskTotalPages(0);
+        setTaskTotalElements(0);
         setError('Project not found.');
         return;
       }
@@ -63,10 +69,15 @@ export default function ProjectDetail() {
       setProject(projectData);
 
       if (user) {
-        const tasksData = await api.getTasks(projectId);
-        setTasks(tasksData);
+        const tasksData = await api.getTasks(projectId, page, TASK_PAGE_SIZE);
+        setTasks(tasksData.content);
+        setTaskPage(tasksData.number);
+        setTaskTotalPages(tasksData.totalPages);
+        setTaskTotalElements(tasksData.totalElements);
       } else {
         setTasks([]);
+        setTaskTotalPages(0);
+        setTaskTotalElements(0);
       }
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
@@ -93,7 +104,8 @@ export default function ProjectDetail() {
       });
       setNewTask({ title: '', description: '', dueDate: '' });
       setIsDialogOpen(false);
-      loadData();
+      setTaskPage(0);
+      loadData(0);
     } catch (error) {
       toast({
         title: 'Error',
@@ -175,7 +187,7 @@ export default function ProjectDetail() {
       {tasks.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No tasks for this project</p>
+            <p className="text-muted-foreground">{isLoading ? 'Loading tasks...' : 'No tasks for this project'}</p>
           </CardContent>
         </Card>
       ) : (
@@ -201,6 +213,30 @@ export default function ProjectDetail() {
           ))}
         </div>
       )}
+
+      <div className="flex items-center justify-between border rounded-lg px-4 py-3">
+        <div className="text-sm text-muted-foreground">
+          Page {taskPage + 1} of {Math.max(taskTotalPages, 1)} • {taskTotalElements} task{taskTotalElements === 1 ? '' : 's'}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTaskPage((p) => Math.max(p - 1, 0))}
+            disabled={taskPage === 0 || isLoading}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTaskPage((p) => Math.min(p + 1, taskTotalPages - 1))}
+            disabled={taskPage >= taskTotalPages - 1 || isLoading || taskTotalPages === 0}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

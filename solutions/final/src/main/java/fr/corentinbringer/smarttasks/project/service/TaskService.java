@@ -5,9 +5,10 @@ import fr.corentinbringer.smarttasks.project.model.*;
 import fr.corentinbringer.smarttasks.project.repository.TaskRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.NoSuchElementException;
 
 @Service
@@ -18,10 +19,10 @@ public class TaskService {
     private final ProjectService projectService;
 
     @Transactional
-    public List<TaskListResponse> findAllByProjectId(Long projectId) {
+    public Page<TaskListResponse> findAllByProjectId(Long projectId, Pageable pageable) {
         Project project = projectService.findById(projectId);
 
-        return taskRepository.findAllByProjectIdAndTenantId(project.getId(), TenantContext.getTenant());
+        return taskRepository.findAllByProjectIdAndTenantId(project.getId(), TenantContext.getTenant(), pageable);
     }
 
     public Task findById(Long taskId) {
