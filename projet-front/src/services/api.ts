@@ -43,6 +43,13 @@ export interface PageResponse<T> {
   totalPages: number;
 }
 
+export interface DashboardResponse {
+  activeProjectsCount: number;
+  totalTasksCount: number;
+  overdueTasksCount: number;
+  latestProjects: ProjectListResponse[];
+}
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
 
 class ApiService {
@@ -190,6 +197,13 @@ class ApiService {
         method: 'POST',
         body: formData,
       },
+    );
+  }
+
+  async getDashboard(): Promise<DashboardResponse> {
+    return this.request<DashboardResponse>(
+      '/api/dashboard',
+      { method: 'GET' },
     );
   }
 }

@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.NoSuchElementException;
 
 @Service
@@ -69,5 +70,13 @@ public class TaskService {
                 task.getProject().getId(),
                 task.getCreatedOn()
         );
+    }
+
+    public long countAllTasks() {
+        return taskRepository.countByTenantId(TenantContext.getTenant());
+    }
+
+    public long countOverdueTasks() {
+        return taskRepository.countOverdueTasksByTenantId(TenantContext.getTenant(), LocalDate.now());
     }
 }

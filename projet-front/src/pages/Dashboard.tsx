@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, Project, Task } from '@/services/api';
+import { api, DashboardResponse } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [totalProjects, setTotalProjects] = useState(0);
-  const [totalTasks, setTotalTasks] = useState(0);
+  const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -20,20 +19,19 @@ export default function Dashboard() {
 
   const loadData = async () => {
     if (!user) return;
-    const projectPage = await api.getProjects(0, 6);
-    setProjects(projectPage.content);
-    setTotalProjects(projectPage.totalElements);
-
-    const projectTasks = await Promise.all(
-      projectPage.content.map((project) => api.getTasks(project.id, 0, 10))
-    );
-    const combinedTasks = projectTasks.flatMap((page) => page.content);
-    const combinedTotal = projectTasks.reduce((sum, page) => sum + page.totalElements, 0);
-    setTasks(combinedTasks);
-    setTotalTasks(combinedTotal);
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await api.getDashboard();
+      setDashboard(response);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const overdueTasks = tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
+  const latestProjects = dashboard?.latestProjects ?? [];
 
   return (
     <div className="space-y-6">
@@ -48,7 +46,9 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium">Active projects</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalProjects}</div>
+            <div className="text-2xl font-bold">
+              {dashboard?.activeProjectsCount ?? 0}
+            </div>
           </CardContent>
         </Card>
 
@@ -57,7 +57,9 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium">Total tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalTasks}</div>
+            <div className="text-2xl font-bold">
+              {dashboard?.totalTasksCount ?? 0}
+            </div>
           </CardContent>
         </Card>
 
@@ -66,7 +68,9 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium">Overdue tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{overdueTasks.length}</div>
+            <div className="text-2xl font-bold text-destructive">
+              {dashboard?.overdueTasksCount ?? 0}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -79,11 +83,16 @@ export default function Dashboard() {
           </Button>
         </CardHeader>
         <CardContent>
-          {projects.length === 0 ? (
+          {error && <p className="text-destructive text-center py-4">{error}</p>}
+          {isLoading && !error && (
+            <p className="text-muted-foreground text-center py-8">Loading dashboard...</p>
+          )}
+          {!isLoading && !error && latestProjects.length === 0 && (
             <p className="text-muted-foreground text-center py-8">No projects for now</p>
-          ) : (
+          )}
+          {!isLoading && !error && latestProjects.length > 0 && (
             <div className="space-y-2">
-              {projects.slice(-3).reverse().map((project) => (
+              {latestProjects.map((project) => (
                 <Link
                   key={project.id}
                   to={`/projects/${project.id}`}

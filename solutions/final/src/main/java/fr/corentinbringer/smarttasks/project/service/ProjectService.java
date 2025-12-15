@@ -8,9 +8,11 @@ import fr.corentinbringer.smarttasks.project.model.ProjectResponse;
 import fr.corentinbringer.smarttasks.project.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 
 @Service
@@ -50,5 +52,15 @@ public class ProjectService {
                 project.getName(),
                 project.getCreatedOn()
         );
+    }
+
+    public long countAllProjects() {
+        return projectRepository.countByTenantId(TenantContext.getTenant());
+    }
+
+    public List<ProjectListResponse> findLatestProjects(int limit) {
+        String tenantId = TenantContext.getTenant();
+        Pageable pageable = PageRequest.of(0, limit);
+        return projectRepository.findLatestProjectsByTenantId(tenantId, pageable);
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 @Repository
@@ -29,4 +30,16 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Page<TaskListResponse> findAllByProjectIdAndTenantId(@Param("projectId") Long projectId, @Param("tenantId") String tenantId, Pageable pageable);
 
     Optional<Task> findByIdAndTenantId(Long id, String tenantId);
+
+    long countByTenantId(String tenantId);
+
+    @Query("""
+           SELECT count(t)
+           FROM Task t
+           WHERE t.tenantId = :tenantId
+           AND t.completed = false
+           AND t.dueDate IS NOT NULL
+           AND t.dueDate < :today
+           """)
+    long countOverdueTasksByTenantId(@Param("tenantId") String tenantId, @Param("today") LocalDate today);
 }
