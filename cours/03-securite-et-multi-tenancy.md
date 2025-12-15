@@ -1,42 +1,28 @@
 # 03 – Sécurité & Multi-Tenancy
 
-Ce module introduit deux aspects fondamentaux d’une application professionnelle :  
-**la sécurité (OAuth2 + JWT)** et **le multi-tenant**, indispensable pour SmartTasks.
+Ce module introduit deux aspects fondamentaux d’une application professionnelle : **la sécurité (OAuth2 + JWT)** et **le multi-tenant**, indispensable pour assurer l'isolation des données dans SmartTasks.
 
----
+-----
 
 # 🎯 Objectifs du module
 
-À la fin de ce chapitre vous serez capables de :
+À la fin de ce chapitre, vous serez capables de :
 
-* Configurer un **Resource Server OAuth2** (JWT)
-* Protéger les endpoints REST
-* Gérer les rôles et autorisations
-* Mettre en place un **multi-tenant soft** via un header HTTP
-* Isoler les données selon `X-Tenant-ID`
-* Comprendre le fonctionnement d’un **TenantContext**
+✅ Configurer un **Resource Server OAuth2** (JWT) avec Spring Security. \
+✅ Protéger l'ensemble des endpoints REST. \
+✅ Comprendre le mécanisme de **multi-tenant soft** de SmartTasks. \
+✅ Isoler les données en utilisant le **JWT Subject** comme identifiant de Tenant. \
+✅ Utiliser un **TenantContext** (`ThreadLocal`) pour propager l'identifiant au travers des couches Service et Repository.
 
----
+-----
 
-# 🔐 1. Introduction à OAuth2 & JWT
+# 🔐 1. Sécurisation : Resource Server & JWT
 
-SmartTasks utilise le modèle suivant :
+SmartTasks utilise l'approche moderne du **Resource Server**. Le backend ne gère pas l'authentification elle-même (qui est déléguée à Google OAuth via le front-end), mais valide le token JWT reçu du client.
 
-* Le front récupère un **JWT** auprès d’un serveur d’auth (Keycloak ou mock)
-* Le backend SmartTasks vérifie et valide ce token via **Spring Security Resource Server**
+### 1.1. Dépendances
 
-### Avantages du JWT :
-
-* Portable  
-* Statuteless  
-* Vérifiable sans requête en base  
-* Rapide et standard  
-
----
-
-# ⚙️ 2. Dépendances Maven
-
-Dans `pom.xml` :
+Assurez-vous d'avoir les dépendances nécessaires dans votre `pom.xml` :
 
 ```xml
 <dependency>
@@ -50,99 +36,59 @@ Dans `pom.xml` :
 </dependency>
 ```
 
----
+### 1.2. Configuration Spring Security
 
-# 🛡️ 3. Configuration Resource Server
-
-`application.yml` :
-
-```yaml
-spring:
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://localhost:8081/realms/smarttasks
-```
-
-> Si vous n’avez pas de Keycloak, un JWT mock pourra être utilisé.
-
----
-
-# 🔧 4. Configuration Spring Security moderne
-
-`config/SecurityConfig.java` :
+Notre configuration désactive la protection CSRF (car c'est une API sans session) et exige une authentification pour l'intégralité de l'API (`/api/**`).
 
 ```java
+// Dans smarttasks/configuration/SecurityConfig.java
+
 @Configuration
-@EnableMethodSecurity
+@EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
-            .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .oauth2ResourceServer(oauth -> oauth.jwt());
+                .cors(Customizer.withDefaults()) // Active CORS (nécessaire pour le front)
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/**").authenticated() // Protège l'API
+                        .anyRequest().authenticated()
+                )
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(Customizer.withDefaults()) // Configure le Resource Server pour accepter les JWT
+                );
 
         return http.build();
     }
+
+    // Configuration CORS également nécessaire (voir fichier complet)
+    // ...
 }
 ```
 
----
+### 1.3. Extraction des Infos utilisateur (JWT)
 
-# 👤 5. Extraction des infos utilisateur
+Une fois le JWT validé, Spring Security le place dans le contexte de sécurité. Nous pouvons extraire l'objet `Jwt` qui contient toutes les *claims*.
 
-Spring extrait automatiquement :
+Dans le contexte de SmartTasks, **l'identifiant unique de l'utilisateur (le `sub`) est central à notre stratégie Multi-Tenancy** (voir section 2).
 
-* `sub` → ID utilisateur  
-* `preferred_username`  
-* `email`  
-* `roles` → dans `realm_access.roles`
+-----
 
- Exemple pour récupérer le principal :
+# 🏢 2. Multi-Tenant Soft (Isolation des Données)
 
-```java
-@GetMapping("/me")
-public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
-    return Map.of(
-        "username", jwt.getClaim("preferred_username"),
-        "roles", jwt.getClaim("realm_access")
-    );
-}
-```
+Dans SmartTasks, les données de chaque utilisateur (ou *tenant*) doivent être strictement isolées. Nous utilisons le **Multi-Tenant Soft** : chaque table possède une colonne `tenant_id` pour le filtrage.
 
----
+La clé d'isolation est l'ID de l'utilisateur extrait du JWT.
 
-# 🏢 6. Multi-tenant soft (isolation logique)
+### 2.1. Le TenantContext (`ThreadLocal`)
 
-SmartTasks doit permettre à plusieurs entreprises d’utiliser l'app en toute isolation.
-
-Nous utilisons un **multi-tenant soft** :
-
-→ chaque enregistrement en base possède une colonne `tenant_id`
-
-→ le client envoie un header :  
-
-```
-X-Tenant-ID: acme
-```
-
-→ le backend filtre automatiquement les données selon le tenant.
-
----
-
-# 🧩 7. TenantContext (ThreadLocal)
-
-Créer un contexte tenant par requête :
-
- `tenant/TenantContext.java`
+Afin que l'identifiant du tenant soit accessible dans toutes les couches (du Controller au Repository), nous utilisons un `ThreadLocal` appelé `TenantContext`.
 
 ```java
+// Dans smarttasks/configuration/tenant/TenantContext.java
+
 public class TenantContext {
 
     private static final ThreadLocal<String> CURRENT = new ThreadLocal<>();
@@ -152,7 +98,7 @@ public class TenantContext {
     }
 
     public static String getTenant() {
-        return CURRENT.get();
+        return CURRENT.get(); // Utilisé par les services et repositories
     }
 
     public static void clear() {
@@ -161,104 +107,106 @@ public class TenantContext {
 }
 ```
 
----
+### 2.2. Le filtre d'extraction du tenant
 
-# 🏷️ 8. Filtre HTTP pour extraire X-Tenant-ID
+Le point d'entrée pour le Multi-Tenancy est un filtre HTTP qui s'exécute après l'authentification JWT.
 
-`tenant/TenantFilter.java` :
+Dans notre projet, l'identifiant du tenant est le `subject` (ID unique) du JWT.
 
 ```java
+// Dans smarttasks/configuration/tenant/TenantFilter.java
+
 @Component
 public class TenantFilter extends OncePerRequestFilter {
 
     @Override
-    protected void doFilterInternal(HttpServletRequest req,
-                                    HttpServletResponse res,
-                                    FilterChain chain)
-                                    throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+            throws ServletException, IOException {
+        String tenantId = null;
 
-        String tenant = req.getHeader("X-Tenant-ID");
-        if (tenant == null) {
-            res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing tenant header");
+        // 1. On récupère le JWT validé par Spring Security
+        if (SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken jwtAuth) {
+            Jwt jwt = jwtAuth.getToken();
+            tenantId = jwt.getSubject(); // L'ID utilisateur (sub) est notre tenantId
+        }
+
+        if (tenantId == null) {
+            // Devrait être géré par SecurityConfig, mais sécurité en profondeur
+            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required or JWT invalid.");
             return;
         }
 
-        TenantContext.setTenant(tenant);
+        // 2. On stocke l'ID dans le ThreadLocal
+        TenantContext.setTenant(tenantId);
         try {
-            chain.doFilter(req, res);
+            chain.doFilter(req, res); // On passe au Controller/Service/Repository
         } finally {
-            TenantContext.clear();
+            TenantContext.clear(); // 3. On nettoie toujours à la fin de la requête
         }
     }
 }
 ```
 
-➡️ Ce filtre s’exécute **avant les services et repositories**, ce qui permet de filtrer ensuite les données.
+### 2.3. Modèle et Repositories Multi-Tenant
 
----
-
-# 🗃️ 9. Modèle multi-tenant
-
-Chaque entité doit avoir une colonne `tenant_id` :
+Chaque entité de données doit posséder le champ `tenantId`.
 
 ```java
-@Column(name = "tenant_id")
+// Dans smarttasks/project/model/Project.java ou Task.java
+
+@Column(updatable = false, nullable = false)
 private String tenantId;
 ```
 
-Lors de l’enregistrement :
+**Travail à Réaliser :** Mettez à jour vos entités pour inclure ce champ.
+
+Dans la couche Service, vous injectez le `tenantId` lors de la création et l'utilisez pour filtrer lors de la lecture.
 
 ```java
-task.setTenantId(TenantContext.getTenant());
+// Dans smarttasks/project/service/ProjectService.java (Exemple de création)
+
+public ProjectResponse create(ProjectCreateRequest request) {
+    Project project = new Project();
+    project.setName(request.name());
+    // Injection du Tenant ID lors de la création
+    project.setTenantId(TenantContext.getTenant()); 
+    // ...
+}
 ```
 
-Lors d’une lecture :
+Dans la couche Repository, **vous devez absolument filtrer sur le `tenantId` pour chaque requête de lecture**.
 
 ```java
-List<Task> findByTenantId(String tenantId);
+// Dans smarttasks/project/repository/ProjectRepository.java (Exemple de recherche)
+
+@Query("""
+       SELECT new fr.corentinbringer.smarttasks.project.model.ProjectListResponse(
+           p.id, p.name, p.createdOn
+       )
+       FROM Project p
+       WHERE p.tenantId = :tenantId
+       """)
+Page<ProjectListResponse> findAllListByTenantId(@Param("tenantId") String tenantId, Pageable pageable);
 ```
 
-Pour tout repository :
+-----
 
-```java
-List<Project> findByTenantId(String tenantId);
-```
+# 🧪 Exercice pratique
 
----
+1.  **Modèle** : Ajoutez la colonne `tenantId` de type `String` à vos entités `Project`, `Task` et `Attachment`.
+2.  **Sécurité** : Intégrez le `SecurityConfig.java` et le `TenantFilter.java` à votre projet (en vous assurant que le filtre utilise le `jwt.getSubject()` pour le tenant ID).
+3.  **Service** : Modifiez toutes les méthodes de création (`create`) dans vos services pour appeler `project.setTenantId(TenantContext.getTenant())`.
+4.  **Repository** : Modifiez toutes les méthodes de lecture (`findById`, `findAll`, etc.) dans vos Repositories pour inclure la clause `WHERE entite.tenantId = :tenantId`.
+5.  **Bonus** : Ajoutez un endpoint simple de debugg :
+    ```
+    GET /api/me
+    ```
+    qui retourne l'ID de l'utilisateur (le `subject` du JWT) pour vérifier que l'extraction fonctionne.
 
-# 🔒 10. Sécurisation par tenant + utilisateur
-
-On combine :
-
-* tenant du header  
-* utilisateur authentifié (JWT)  
-* stratégie RBAC : ADMIN / USER  
-
-Exemple méthode sécurisée :
-
-```java
-@PreAuthorize("hasRole('ADMIN')")
-public void deleteProject(Long id) { ... }
-```
-
----
-
-# 🧪 11. Exercice pratique
-1. Ajouter `tenant_id` à **Project**, **Task**, **User**
-2. Modifier leurs services pour injecter automatiquement `TenantContext.getTenant()`
-3. Empêcher un utilisateur d’accéder à un tenant différent
-4. Ajouter un endpoint :
-
-```
-GET /api/me
-```
-
-return info du JWT + tenant actuel
-
----
+-----
 
 # 📘 Prochain module
 
-➡️ **04 – Swagger, Documentation & Intégration Front**
+➡️ **04 – Swagger / OpenAPI**
 
-Vous avez désormais une API sécurisée et multi-tenant 🚀
+Nous allons documenter l'API pour faciliter l'intégration front-end et la maintenance.

@@ -16,6 +16,17 @@ import java.io.IOException;
 public class TenantFilter extends OncePerRequestFilter {
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest req) {
+        String path = req.getServletPath();
+
+        return path.startsWith("/swagger-ui/")
+                || path.equals("/swagger-ui.html")
+                || path.equals("/v3/api-docs")
+                || path.startsWith("/v3/api-docs/")
+                || path.equals("/error");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
             throws ServletException, IOException {
         String tenantId = null;
