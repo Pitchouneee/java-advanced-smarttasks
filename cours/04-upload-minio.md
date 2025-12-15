@@ -1,4 +1,4 @@
-# 06 – Upload de fichiers avec MinIO
+# 04 – Upload de fichiers avec MinIO
 
 Dans ce module, nous allons ajouter une fonctionnalité très fréquente dans les applications métiers :  
 ➡️ l’**upload de fichiers** (pièces jointes) liés aux tâches, en utilisant **MinIO** comme stockage objet compatible S3.

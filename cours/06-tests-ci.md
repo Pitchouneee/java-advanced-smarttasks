@@ -1,4 +1,4 @@
-# 05 – Tests & Intégration Continue (CI)
+# 06 – Tests & Intégration Continue (CI)
 
 Dans ce module, vous allez apprendre à tester votre API SmartTasks et mettre en place une pipeline d’intégration continue (CI) avec **GitHub Actions**.
 

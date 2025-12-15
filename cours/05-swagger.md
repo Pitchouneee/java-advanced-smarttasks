@@ -1,4 +1,4 @@
-# 04 – Swagger / OpenAPI & Intégration Front
+# 05 – Swagger / OpenAPI & Intégration Front
 
 Dans ce module, nous allons :
 
