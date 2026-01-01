@@ -21,7 +21,6 @@ application de gestion de tâches multi-entreprises.
 *   Implémenter une **sécurité OAuth2 / JWT**
 *   Comprendre et appliquer le **multi-tenant** (soft)
 *   Documenter une API via **Swagger / OpenAPI**
-*   Réaliser des **tests unitaires** (JUnit, MockMVC)
 *   Gérer l'**upload de fichiers** via MinIO / S3
 *   Structurer proprement un projet (Clean Architecture)
 
@@ -30,7 +29,6 @@ application de gestion de tâches multi-entreprises.
 *   Comprendre les architectures **monolithe vs microservices**
 *   Découper proprement un projet en modules
 *   Travailler avec une stack complète : **Java + React**
-*   Utiliser Git et un workflow simple de CI
 
 ---
 
@@ -48,30 +46,7 @@ Chaque entreprise dispose de son propre espace de données
 *   📝 CRUD projets, utilisateurs, tâches
 *   📎 Upload de fichiers pour les tâches
 *   📘 Documentation Swagger
-*   🧪 Tests unitaires et d'intégration
 *   🔗 Intégration avec un front React (fourni)
-
----
-
-# 🗂️ Structure du dépôt
-
-    📦 smarttasks
-     ┣ 📂 cours
-     ┃ ┣ 00-setup.md
-     ┃ ┣ 01-api-rest-spring-boot.md
-     ┃ ┣ 02-jpa-et-relations.md
-     ┃ ┣ 03-securite-et-multi-tenancy.md
-     ┃ ┣ 04-swagger-front.md
-     ┃ ┣ 05-tests-ci.md
-     ┃ ┣ 06-upload-minio.md
-     ┃ ┣ 07-clean-architecture.md
-     ┃ ┣ 08-monolithe-vs-microservices.md
-     ┃ ┗ planning.md
-     ┣ 📂 projet-back
-     ┣ 📂 projet-front
-     ┣ 📂 solutions
-     ┣ docker-compose.yaml
-     ┗ README.md
 
 ---
 
@@ -80,8 +55,8 @@ Chaque entreprise dispose de son propre espace de données
 | Jour         | Thèmes principaux                                                                  | Durée |
 | ------------ | ---------------------------------------------------------------------------------- | ----- |
 | **Lundi**    | API REST avec Spring Boot, structure du projet, JPA                                | 7h    |
-| **Mardi**    | Sécurité OAuth2/JWT, multi-tenant, Swagger/OpenAPI                                 | 7h    |
-| **Mercredi** | Tests unitaires, GitHub Actions (CI), Upload fichiers (MinIO)                      | 7h    |
+| **Mardi**    | Sécurité OAuth2/JWT, multi-tenant                                                  | 7h    |
+| **Mercredi** | Upload fichiers (MinIO), Swagger/OpenAPI                                           | 7h    |
 | **Jeudi**    | Clean Architecture, refactorings, monolithe vs microservices, démonstration finale | 4h    |
 
 ---
