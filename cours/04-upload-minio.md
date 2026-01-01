@@ -1,89 +1,53 @@
-# 04 – Upload de fichiers avec MinIO
+# 04 – Upload de fichiers & Stockage Objet (MinIO)
 
-Dans ce module, nous allons ajouter une fonctionnalité très fréquente dans les applications métiers :  
-➡️ l’**upload de fichiers** (pièces jointes) liés aux tâches, en utilisant **MinIO** comme stockage objet compatible S3.
+Dans les architectures cloud modernes, on ne stocke jamais les fichiers utilisateurs sur le disque du serveur (car les serveurs sont éphémères) ni en base de données (car les BLOBs tuent les performances).
+
+On utilise du **Stockage Objet** (Object Storage) compatible S3. Dans ce cours, nous utiliserons **MinIO**, une solution open source compatible S3.
+
+> Attention, depuis fin novembre MinIO Community n'est plus maintenu au profit de la version commerciale, mais pour ici un projet scolaire cela fera l'affaire.
 
 ---
 
 # 🎯 Objectifs du module
 
-À la fin du chapitre, vous serez capables de :
-
-* Comprendre le principe d’un **stockage objet** (S3 / MinIO)
-* Lancer un conteneur MinIO avec Docker
-* Configurer un client MinIO dans Spring Boot
-* Créer un endpoint REST pour uploader un fichier
-* Lier un fichier à une **Task** (métadonnées en base, contenu dans MinIO)
-* (Bonus) Générer une URL de téléchargement
+✅ Comprendre la différence entre **Stockage Bloc** (disque dur) et **Stockage Objet** (S3).
+✅ Manipuler des **Flux (Streams)** en Java pour ne pas saturer la mémoire RAM.
+✅ Séparer le stockage physique (MinIO) des métadonnées (PostgreSQL).
+✅ Implémenter l'upload et le téléchargement en **Streaming**.
 
 ---
 
-# 📦 1. Rappel : conteneur MinIO
+# 📦 1. Infrastructure : MinIO
 
-Dans votre `docker-compose.yml` :
+Assurez-vous que votre conteneur MinIO est lancé via Docker Compose.
 
-```yaml
-services:
-  minio:
-    image: minio/minio
-    container_name: minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-```
-
-Lancer MinIO :
-
-```bash
-docker compose up -d minio
-```
-
-Accès à la console web :  
-➡️ http://localhost:9001  
-Utilisateur : `admin`
-
-Mot de passe : `password`
-
-Créer un **bucket** nommé par exemple : `smarttasks` .
+1. Accédez à la console : [http://localhost:9001](http://localhost:9001)
+2. Login : `admin` / `password`
+3. **Action requise :** Créez un **Bucket** nommé `smarttasks`.
+* *Un bucket est l'équivalent d'un lecteur ou d'un dossier racine dans le monde S3.*
 
 ---
 
-# 🔗 2. Dépendance du client MinIO
+# ⚙️ 2. Configuration Spring
 
-Nous allons utiliser le **client officiel Java MinIO**.
+Nous avons besoin du SDK MinIO pour communiquer avec le service.
 
-Dans `pom.xml` :
+### 2.1. Dépendance (`pom.xml`)
 
 ```xml
 <dependency>
     <groupId>io.minio</groupId>
     <artifactId>minio</artifactId>
-    <version>8.5.10</version>
+    <version>8.5.7</version>
 </dependency>
+
 ```
 
-> La version peut évoluer, adapter si besoin.
+### 2.2. Configuration (`MinioConfig.java`)
 
----
+Nous allons créer un Bean `MinioClient` qui sera injecté partout où nous en aurons besoin.
 
-# ⚙️ 3. Configuration MinIO dans Spring
-
-Dans `application.yml` :
-
-```yaml
-minio:
-  url: http://localhost:9000
-  access-key: admin
-  secret-key: password
-  bucket: smarttasks
-```
-
-Créer une classe de configuration :  
- `config/MinioConfig.java`
+**Exercice :** Créez la classe `configuration/minio/MinioConfig.java`.
 
 ```java
 @Configuration
@@ -91,258 +55,198 @@ public class MinioConfig {
 
     @Value("${minio.url}")
     private String url;
-
-    @Value("${minio.access-key}")
-    private String accessKey;
-
-    @Value("${minio.secret-key}")
-    private String secretKey;
+    
+    // ... autres @Value pour accessKey, secretKey ...
 
     @Bean
     public MinioClient minioClient() {
-        return MinioClient.builder()
-                .endpoint(url)
-                .credentials(accessKey, secretKey)
-                .build();
+        // TODO: Construire et retourner le client MinIO
+        // Utilisez MinioClient.builder()...
+        return null;
     }
 }
+
 ```
 
 ---
 
-# 🧱 4. Entité FileAttachment
+# 🧱 3. Modèle de données : Métadonnées
 
-Nous ne stockons **pas** le contenu du fichier en base, seulement des métadonnées :
+En base de données, nous ne stockons que la "carte d'identité" du fichier. Le fichier lui-même sera dans MinIO, identifié par une clé unique (`objectKey`).
 
-* nom d’origine
-* type MIME
-* taille
-* clé du fichier dans MinIO
-* lien avec la Task
-* tenant
-
-`domain/FileAttachment.java` :
+**Exercice :** Créez l'entité `Attachment` dans `project/model/Attachment.java`.
 
 ```java
 @Entity
-@Table(name = "file_attachments")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class FileAttachment {
+@Table(name = "attachments")
+// Lombok...
+public class Attachment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String originalFilename;
-
-    private String contentType;
-
-    private Long size;
-
-    private String objectKey; // identifiant dans MinIO
-
-    @Column(name = "tenant_id")
+    @Column(updatable = false, nullable = false)
     private String tenantId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "task_id")
-    private Task task;
-}
-```
+    // TODO: Ajoutez les champs suivants :
+    // - objectKey (String) : UUID unique du fichier dans MinIO
+    // - originalName (String) : Nom d'origine du fichier (ex: rapport.pdf)
+    // - mimeType (String) : Type de contenu (ex: application/pdf)
+    // - size (long) : Taille en octets
+    // - uploadedOn (LocalDateTime) : Date d'upload
 
-Repository :  
-`repository/FileAttachmentRepository.java` :
-
-```java
-public interface FileAttachmentRepository extends JpaRepository<FileAttachment, Long> {
-    List<FileAttachment> findByTaskId(Long taskId);
+    // TODO: Relation ManyToOne vers Task (Lazy !)
+    
+    @PrePersist
+    protected void onCreate() {
+        this.uploadedOn = LocalDateTime.now();
+    }
 }
+
 ```
 
 ---
 
-# 🧩 5. Service de stockage MinIO
+# 🧩 4. Le Service technique (Infrastructure)
 
-Créer `service/FileStorageService.java` :
+Nous allons isoler la complexité de MinIO dans un service dédié. Ce service ne doit pas connaître les entités JPA, il manipule juste des fichiers.
+
+**Exercice :** Implémentez `minio/service/MinioService.java`.
 
 ```java
 @Service
 @RequiredArgsConstructor
-public class FileStorageService {
+public class MinioService {
 
     private final MinioClient minioClient;
+    
+    @Value("${minio.bucket-name}")
+    private String bucketName;
 
-    @Value("${minio.bucket}")
-    private String bucket;
+    /**
+     * Upload un fichier vers MinIO.
+     * @return L'ID unique (Object Name) généré pour ce fichier.
+     */
+    public String uploadFile(MultipartFile file) throws Exception {
+        // 1. Générer un nom unique pour éviter les collisions (UUID)
+        String objectName = UUID.randomUUID().toString();
 
-    public String upload(String objectKey, InputStream data, long size, String contentType) {
-        try {
-            PutObjectArgs args = PutObjectArgs.builder()
-                    .bucket(bucket)
-                    .object(objectKey)
-                    .stream(data, size, -1)
-                    .contentType(contentType)
-                    .build();
-
-            minioClient.putObject(args);
-            return objectKey;
-        } catch (Exception e) {
-            throw new RuntimeException("Erreur upload MinIO", e);
+        // 2. Envoyer le flux (InputStream) à MinIO
+        // Astuce : file.getInputStream(), file.getSize(), file.getContentType()
+        try (InputStream is = file.getInputStream()) {
+            // TODO: Appeler minioClient.putObject(...)
         }
+        
+        return objectName;
     }
 
-    public InputStream download(String objectKey) {
-        try {
-            GetObjectArgs args = GetObjectArgs.builder()
-                    .bucket(bucket)
-                    .object(objectKey)
-                    .build();
-            return minioClient.getObject(args);
-        } catch (Exception e) {
-            throw new RuntimeException("Erreur download MinIO", e);
-        }
+    /**
+     * Récupère le flux de données d'un fichier.
+     */
+    public InputStream downloadFile(String objectKey) throws Exception {
+        // TODO: Appeler minioClient.getObject(...)
+        return null;
     }
 }
+
 ```
 
 ---
 
-# 📎 6. Service métier pour les pièces jointes
+# 📎 5. Le Service métier (`AttachmentService`)
 
-`service/FileAttachmentService.java` :
+C'est ici qu'on orchestre tout : vérifier les droits, uploader physiquement, puis sauvegarder les infos en base.
+
+**Exercice :** Complétez `AttachmentService.java`.
 
 ```java
 @Service
 @RequiredArgsConstructor
-public class FileAttachmentService {
+public class AttachmentService {
 
-    private final FileAttachmentRepository repository;
-    private final TaskRepository taskRepository;
-    private final FileStorageService storageService;
+    private final AttachmentRepository attachmentRepository;
+    private final TaskService taskService; // Pour récupérer la tâche
+    private final MinioService minioService;
 
-    public FileAttachment uploadForTask(Long taskId, MultipartFile file) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new NoSuchElementException("Task not found"));
+    @Transactional
+    public AttachmentResponse create(Long taskId, MultipartFile file) {
+        // 1. Récupérer la tâche (vérifie implicitement le tenant via le service)
+        Task task = taskService.findById(taskId);
 
-        String tenantId = TenantContext.getTenant();
-        String objectKey = UUID.randomUUID() + "_" + file.getOriginalFilename();
+        try {
+            // 2. Upload physique
+            String objectKey = minioService.uploadFile(file);
 
-        try (InputStream is = file.getInputStream()) {
-            storageService.upload(objectKey, is, file.getSize(), file.getContentType());
-        } catch (IOException e) {
-            throw new RuntimeException("Erreur lecture fichier", e);
+            // 3. Création de l'entité Attachment
+            Attachment attachment = new Attachment();
+            attachment.setTenantId(TenantContext.getTenant());
+            attachment.setTask(task);
+            attachment.setObjectKey(objectKey);
+            attachment.setOriginalName(file.getOriginalFilename());
+            attachment.setMimeType(file.getContentType());
+            attachment.setSize(file.getSize());
+
+            // 4. Sauvegarde BDD et retour DTO
+            Attachment saved = attachmentRepository.save(attachment);
+            return mapToResponse(saved);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de l'upload", e);
         }
-
-        FileAttachment attachment = new FileAttachment();
-        attachment.setOriginalFilename(file.getOriginalFilename());
-        attachment.setContentType(file.getContentType());
-        attachment.setSize(file.getSize());
-        attachment.setObjectKey(objectKey);
-        attachment.setTenantId(tenantId);
-        attachment.setTask(task);
-
-        return repository.save(attachment);
-    }
-
-    public List<FileAttachment> listForTask(Long taskId) {
-        return repository.findByTaskId(taskId);
     }
 }
+
 ```
 
 ---
 
-# 🌐 7. Controller REST d’upload
+# 🌐 6. Controller et Streaming
 
-`controller/FileAttachmentController.java` :
+Pour le téléchargement, il est crucial de **streamer** la réponse. Si on charge un fichier de 1 Go en mémoire vive avant de l'envoyer, le serveur va crasher (`OutOfMemoryError`).
 
-```java
-@RestController
-@RequestMapping("/api/tasks/{taskId}/attachments")
-@RequiredArgsConstructor
-public class FileAttachmentController {
+Spring permet de renvoyer un `InputStreamResource` qui connectera directement le flux MinIO au flux HTTP de sortie.
 
-    private final FileAttachmentService service;
-
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public FileAttachment upload(
-            @PathVariable Long taskId,
-            @RequestPart("file") MultipartFile file
-    ) {
-        return service.uploadForTask(taskId, file);
-    }
-
-    @GetMapping
-    public List<FileAttachment> list(@PathVariable Long taskId) {
-        return service.listForTask(taskId);
-    }
-}
-```
-
-Test rapide via `curl` :
-
-```bash
-curl -X POST "http://localhost:8080/api/tasks/1/attachments"   -H "X-Tenant-ID: demo"   -H "Content-Type: multipart/form-data"   -F "file=@/chemin/vers/fichier.pdf"
-```
-
----
-
-# ⬇️ 8. (Bonus) Endpoint de téléchargement
-
-Pour simplifier, on peut renvoyer le fichier en direct :
+**Exercice :** Dans `AttachmentController.java`.
 
 ```java
-@GetMapping("/{attachmentId}/download")
-public ResponseEntity<Resource> download(@PathVariable Long attachmentId) {
-    FileAttachment attachment = repository.findById(attachmentId)
-            .orElseThrow(() -> new NoSuchElementException("Attachment not found"));
+@GetMapping("/{id}/download")
+public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable Long id) {
+    // 1. Appel au service pour récupérer un DTO contenant le Stream et les métadonnées
+    DownloadResult result = attachmentService.download(id);
 
-    InputStream is = storageService.download(attachment.getObjectKey());
-    InputStreamResource resource = new InputStreamResource(is);
+    // 2. Encodage du nom de fichier (pour gérer les espaces et accents)
+    String encodedName = URLEncoder.encode(result.fileName(), StandardCharsets.UTF_8);
 
+    // 3. Construction de la réponse HTTP avec les bons headers
     return ResponseEntity.ok()
-            .contentType(MediaType.parseMediaType(attachment.getContentType()))
-            .header(HttpHeaders.CONTENT_DISPOSITION,
-                    "attachment; filename="" + attachment.getOriginalFilename() + """)
-            .body(resource);
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedName + "\"")
+            .header(HttpHeaders.CONTENT_TYPE, result.mimeType())
+            .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(result.size()))
+            .body(result.resource());
 }
+
 ```
 
 ---
 
-# 🖥️ 9. Intégration côté front (idée)
+# 🚀 Validation
 
-Dans le front React, vous pouvez :
+1. Assurez-vous que MinIO tourne.
+2. Prenez une Tâche existante (ID 1 par exemple).
+3. Uploadez un fichier PDF via Postman/Bruno :
+* **POST** `http://localhost:8080/api/tasks/1/attachments`
+* **Body** : `form-data`, clé `file` (type File).
 
-* Ajouter un formulaire `input type="file"` sur la page d’une tâche
-* Envoyer le fichier avec `FormData` :
 
-```ts
-const formData = new FormData();
-formData.append("file", file);
-
-await apiClient.post(`/tasks/${taskId}/attachments`, formData, {
-  headers: { "Content-Type": "multipart/form-data" },
-});
-```
+4. Vérifiez dans la console MinIO que le fichier est apparu (avec un nom UUID).
+5. Vérifiez dans PostgreSQL que la ligne est créée dans `attachments`.
+6. Téléchargez le fichier via l'API.
 
 ---
 
-# 📝 Exercices
-1. Limiter la taille des fichiers (ex : max 10 Mo)
-2. Restreindre les types MIME (PDF, images uniquement)
-3. Ajouter une colonne `uploadedAt` dans `FileAttachment`
-4. Afficher la liste des pièces jointes dans le front avec :
-   - nom
-   - taille
-   - lien de téléchargement
+# ➡️ Prochain module
 
----
-
-# 📘 Prochain module
-
-➡️ **07 – Clean Architecture & refactoring**
-
-Vous avez maintenant un système de pièces jointes complet, prêt pour un usage réel 🚀
+Votre backend est fonctionnel et gère des fichiers !
+Il est temps de le rendre utilisable par les autres développeurs.
+Passez au chapitre suivant : **05 – Swagger / OpenAPI**.

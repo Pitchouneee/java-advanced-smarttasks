@@ -1,320 +1,222 @@
-# 07 – Clean Architecture & Refactoring
+# 06 – Clean Architecture & Refactoring
 
-Ce module vise à améliorer la structure de votre projet SmartTasks en appliquant les principes de la **Clean Architecture** et des bonnes pratiques de développement logiciel.
+Jusqu'à présent, nous avons développé une application "Layered" classique (Controller -> Service -> Repository). C'est fonctionnel, mais cela crée un couplage fort : le code métier dépend de la base de données (JPA).
 
-Objectif :  
-➡️ rendre votre code **plus maintenable**, **testable**, et **facilement extensible**.
+Pour une application maintenable sur le long terme, nous allons basculer vers une **Architecture Hexagonale** (ou Clean Architecture).
 
 ---
 
 # 🎯 Objectifs du module
 
-À la fin de ce chapitre vous serez capables de :
-
-* Comprendre les principes de la Clean Architecture
-* Structurer votre projet Spring Boot en couches claires
-* Séparer le domaine métier des aspects techniques
-* Implémenter des DTO, mappers, ports/adapters
-* Factoriser le code et éliminer les duplications
-* Mettre en place une architecture professionnelle
+✅ Comprendre la **Règle de Dépendance** : Le Domaine ne doit dépendre de rien.
+✅ Structurer le projet en packages : `domain`, `application`, `infrastructure`.
+✅ Isoler les entités métier (Records) des entités JPA (@Entity).
+✅ Utiliser des **Ports** (Interfaces) et des **Adapters** pour inverser les dépendances.
 
 ---
 
-# 🧱 1. Pourquoi la Clean Architecture ?
+# 🌀 1. Théorie : Le Principe d'inversion
 
-Problèmes fréquents dans un projet non structuré :
+Dans une architecture classique :
 
-* Logique dans les contrôleurs
-* Couplage fort avec les frameworks
-* Difficulté à tester
-* Entités JPA exposées directement
-* Multiplication des dépendances circulaires
-* Code imprévisible à maintenir
+> Service (Métier) ➡️ Repository (Technique)
 
-La Clean Architecture vise à **séparer le métier du reste**.
+Si on change de base de données, on risque de casser le métier.
 
----
+Dans la Clean Architecture :
 
-# 🌀 2. Les couches Clean Architecture
+> Service (Métier) ➡️ **Interface (Port)** ⬅️ Adapter (Technique)
 
-Voici le modèle classique :
+Le métier définit ses besoins ("J'ai besoin de sauvegarder"), et la couche technique implémente ce besoin. Le métier ne connaît pas l'implémentation.
+
+### Structure cible des packages
 
 ```
-               +-------------------------+
-               |     Presentation        |
-               |  (controller, DTOs)     |
-               +------------+------------+
-                            |
-               +------------+------------+
-               |      Application        |
-               | (services, use-cases)   |
-               +------------+------------+
-                            |
-               +------------+------------+
-               |        Domain           |
-               | (business models, rules)|
-               +------------+------------+
-                            |
-               +------------+------------+
-               |   Infrastructure         |
-               | (JPA, MinIO, Security)   |
-               +---------------------------+
-```
+src/main/java/fr/corentinbringer/smarttasks
+ ┣ 📂 project
+ ┃ ┣ 📂 domain                 # Le Cœur du métier (Aucun framework ici !)
+ ┃ ┃ ┗ 📂 model                # Objets purs (Record)
+ ┃ ┣ 📂 application            # L'Orchestration
+ ┃ ┃ ┣ 📂 port.out             # Interfaces définies par le métier (Ports)
+ ┃ ┃ ┗ 📂 service              # Logique applicative
+ ┃ ┗ 📂 infrastructure         # Les détails techniques
+ ┃   ┣ 📂 persistence          # Base de données (JPA)
+ ┃   ┃ ┣ 📂 adapter            # Implémentation des Ports
+ ┃   ┃ ┣ 📂 jpa.entity         # Entités JPA (@Entity)
+ ┃   ┃ ┗ 📂 jpa.repository     # Interfaces Spring Data
+ ┃   ┗ 📂 web                  # API REST (Controllers)
 
-Règle d'or :  
-👉 Les couches supérieures connaissent les couches inférieures, **jamais l'inverse**.
-
----
-
-# 🗂️ 3. Organisation recommandée pour SmartTasks
-
-```
-src/main/java/com/smarttasks
- ┣ domain/                 # Entités métiers + règles
- ┣ application/            # Services métiers (use cases)
- ┣ infrastructure/         # JPA, MinIO, Security
- ┣ presentation/           # Controllers REST + DTO
- ┗ SmartTasksApplication.java
 ```
 
 ---
 
-# 🧩 4. Domain (métier pur)
+# 🛠️ 2. Mise en pratique : Le domaine
 
-Exemple : `domain/Project.java`
+Nous allons "purifier" notre modèle `Project`. Il ne doit plus avoir d'annotations `@Entity`, `@Id`, `@Column`.
 
-* sans annotation JPA
-* sans référence à des frameworks
-* juste les règles métier
+**Exercice :** Créez le record `Project` dans `project/domain/model`.
 
 ```java
-public class Project {
-    private Long id;
-    private String name;
+package fr.corentinbringer.smarttasks.project.domain.model;
 
-    public void rename(String newName) {
-        if (newName == null || newName.isBlank()) {
-            throw new IllegalArgumentException("Nom invalide");
-        }
-        this.name = newName;
+import java.time.LocalDateTime;
+
+// C'est un objet pur (POJO/Record). Aucune dépendance à Spring ou Jakarta.
+public record Project(
+    Long id,
+    String tenantId,
+    String name,
+    LocalDateTime createdOn
+) {}
+
+```
+
+---
+
+# 🔌 3. Les Ports (Interfaces)
+
+Le service métier a besoin de sauvegarder et lire des projets. Il définit un contrat.
+
+**Exercice :** Créez l'interface `ProjectPort` dans `project/application/port/out`.
+
+```java
+public interface ProjectPort {
+    Project save(Project project);
+    
+    // Le métier utilise ses propres objets (Project), pas les entités JPA !
+    Page<Project> findAll(String tenantId, Pageable pageable);
+    
+    Optional<Project> findByIdAndTenantId(Long id, String tenantId);
+}
+
+```
+
+---
+
+# 🏗️ 4. L'Infrastructure (Persistence)
+
+C'est ici (et seulement ici) que nous utilisons JPA.
+
+### 4.1. L'Entité JPA
+
+Déplacez votre ancienne classe `@Entity` vers `infrastructure/persistence/jpa/entity/ProjectEntity.java`.
+
+### 4.2. Le Mapper
+
+Nous avons besoin de convertir `Project` (Domaine) ↔ `ProjectEntity` (BDD).
+
+**Exercice :** Créez `ProjectMapper.java`.
+
+```java
+@Component
+public class ProjectMapper {
+
+    public Project toDomain(ProjectEntity entity) {
+        if (entity == null) return null;
+        return new Project(
+            entity.getId(),
+            entity.getTenantId(),
+            entity.getName(),
+            entity.getCreatedOn()
+        );
+    }
+
+    public ProjectEntity toEntity(Project domain) {
+        // TODO: Créer une ProjectEntity et mapper les champs
+        // Attention : Ne pas oublier d'initialiser les listes si besoin
+        return null;
     }
 }
+
 ```
 
----
+### 4.3. L'adaptateur
 
-# 🏗️ 5. Infrastructure (JPA, MinIO…)
+C'est la classe qui implémente le Port. C'est elle qui fait le pont entre le monde "idéal" (Domaine) et le monde "réel" (Base de données).
 
-Ici vous placez les implémentations techniques.
-
-Exemple : JPA pour Project  
- `infrastructure/jpa/ProjectEntity.java`
-
-```java
-@Entity
-@Table(name = "projects")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class ProjectEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    private String name;
-
-    @Column(name = "tenant_id")
-    private String tenantId;
-}
-```
-
-Repository JPA :
-
-```java
-public interface ProjectJpaRepository extends JpaRepository<ProjectEntity, Long> {
-    List<ProjectEntity> findByTenantId(String tenantId);
-}
-```
-
----
-
-# 🔌 6. Ports & Adapters
-
-Les **ports** définissent des interfaces métier.  
-Les **adapters** connectent ces ports au monde technique.
-
-Port côté domaine :
-
-```java
-public interface ProjectRepository {
-    Project save(Project project);
-    List<Project> findAllByTenant(String tenant);
-}
-```
-
-Adapter JPA :
+**Exercice :** Implémentez `ProjectPersistenceAdapter`.
 
 ```java
 @Component
 @RequiredArgsConstructor
-public class ProjectJpaAdapter implements ProjectRepository {
+public class ProjectPersistenceAdapter implements ProjectPort {
 
-    private final ProjectJpaRepository jpa;
+    private final ProjectRepository projectRepository; // Le Repo JPA classique
+    private final ProjectMapper projectMapper;
 
     @Override
     public Project save(Project project) {
-        ProjectEntity e = new ProjectEntity(
-            project.getId(),
-            project.getName(),
-            TenantContext.getTenant()
-        );
-        ProjectEntity saved = jpa.save(e);
-        return new Project(saved.getId(), saved.getName());
+        // 1. Convertir Domaine -> Entity
+        ProjectEntity entity = projectMapper.toEntity(project);
+        
+        // 2. Sauvegarder
+        ProjectEntity saved = projectRepository.save(entity);
+        
+        // 3. Retourner Domaine
+        return projectMapper.toDomain(saved);
     }
 
     @Override
-    public List<Project> findAllByTenant(String tenant) {
-        return jpa.findByTenantId(tenant).stream()
-            .map(e -> new Project(e.getId(), e.getName()))
-            .toList();
+    public Page<Project> findAll(String tenantId, Pageable pageable) {
+        return projectRepository.findAllByTenantId(tenantId, pageable)
+                .map(projectMapper::toDomain);
     }
 }
+
 ```
 
 ---
 
-# 🧠 7. Application layer (services métier)
+# 🔄 5. Mise à jour du service
 
-Les services orchestrent les use cases :
+Le `ProjectService` ne dépend plus de `ProjectRepository`. Il dépend de `ProjectPort`.
 
 ```java
 @Service
 @RequiredArgsConstructor
 public class ProjectService {
 
-    private final ProjectRepository repository;
+    private final ProjectPort projectPort; // Injection de l'interface !
 
-    public List<Project> listAll() {
-        return repository.findAllByTenant(TenantContext.getTenant());
-    }
+    public ProjectResponse create(ProjectCreateRequest request) {
+        // Création du record Domaine (et non plus de l'entité JPA)
+        Project project = new Project(
+            null, 
+            TenantContext.getTenant(), 
+            request.name(), 
+            LocalDateTime.now()
+        );
 
-    public Project create(String name) {
-        Project project = new Project(null, name);
-        return repository.save(project);
-    }
-}
-```
-
----
-
-# 🖥️ 8. Presentation layer (REST API)
-
-Les contrôleurs REST appellent les services + gèrent les DTO.
-
-DTO :
-
-```java
-public record ProjectDto(Long id, String name) {}
-```
-
-Mapper :
-
-```java
-public class ProjectMapper {
-    public static ProjectDto toDto(Project p) {
-        return new ProjectDto(p.getId(), p.getName());
+        Project saved = projectPort.save(project);
+        
+        return new ProjectResponse(saved.id(), saved.name(), saved.createdOn());
     }
 }
-```
 
-Controller :
-
-```java
-@RestController
-@RequestMapping("/api/projects")
-@RequiredArgsConstructor
-public class ProjectController {
-
-    private final ProjectService service;
-
-    @GetMapping
-    public List<ProjectDto> all() {
-        return service.listAll().stream()
-            .map(ProjectMapper::toDto)
-            .toList();
-    }
-
-    @PostMapping
-    public ProjectDto create(@RequestBody CreateProjectRequest request) {
-        return ProjectMapper.toDto(service.create(request.name()));
-    }
-}
 ```
 
 ---
 
-# 🔧 9. Critères de qualité
+# 🧪 Exercices finaux
 
-Votre projet est propre si :
+C'est un gros chantier de refactoring. À vous de jouer pour le reste :
 
-* aucune entité JPA n'est exposée en JSON
-* aucune logique métier n'est dans les contrôleurs
-* aucun contrôleur n'appelle un repository directement
-* aucun DTO n'est utilisé dans le domaine
-* aucun service métier ne dépend d’un framework
-* les tests unitaires fonctionnent **sans lancer Spring**
+1. **Task** : Refactorez `Task` en suivant le même modèle :
+* `Task` (Record domaine)
+* `TaskPort` (Interface)
+* `TaskPersistenceAdapter` (Implémentation avec Mapper)
 
----
 
-# 🧹 10. Atelier refactoring
-
-Refactorer ensemble :
-
-### 🔹 Étape 1  
-
-Créer 4 packages : `domain` , `application` , `infrastructure` , `presentation` .
-
-### 🔹 Étape 2  
-
-Isoler les entités JPA dans `infrastructure/jpa` .
-
-### 🔹 Étape 3  
-
-Créer des ports (interfaces) dans `domain` .
-
-### 🔹 Étape 4  
-
-Implémenter les ports dans les adapters.
-
-### 🔹 Étape 5  
-
-Mettre les services métiers dans `application` .
-
-### 🔹 Étape 6  
-
-Mettre les controllers & DTO dans `presentation` .
+2. **Attachment** : Idem pour les pièces jointes.
+3. **MinIO** : Créez un port `FileStoragePort` (interface) et déplacez l'implémentation MinIO dans un adapter `MinioFileStorageAdapter`. Ainsi, votre métier ne dépendra plus de la librairie MinIO directement.
 
 ---
 
-# 📝 Exercices du module
-1. Appliquer la Clean Architecture à **Task** :
-   - entité métier
-   - port
-   - adapter
-   - service
-   - contrôleur
-   - DTO + mapper
+# 🏁 Conclusion
 
-2. Faire de même pour **FileAttachment**
+Bravo ! Vous avez transformé une application monolithique couplée en une application modulaire et testable.
 
-3. Bonus :
-   - isoler `TenantContext` dans infrastructure
-   - ajouter une interface `TenantProvider` côté domaine
+* Si demain on remplace PostgreSQL par MongoDB, on réécrit juste l'Adapter. Le métier ne change pas.
+* Si on remplace MinIO par AWS S3, on crée un nouvel Adapter `S3FileStorageAdapter`.
 
----
-
-# 📘 Prochain module
-
-➡️ **08 – Monolithe vs Microservices**
-
-Vous avez maintenant une structure de projet professionnelle, propre et scalable 🚀
+C'est l'architecture standard des projets d'entreprise modernes.

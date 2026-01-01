@@ -1,8 +1,7 @@
-
 # 01 – API REST avec Spring Boot
 
-Ce premier module pose les bases de la construction d’une API REST avec **Spring Boot**.  
-C’est ici que vous apprendrez à structurer votre backend SmartTasks.
+Ce premier module pose les fondations de votre backend **SmartTasks**. 
+Nous n'allons pas simplement "écrire du code", mais comprendre comment Spring Boot orchestre les composants d'une application professionnelle.
 
 ---
 
@@ -47,9 +46,25 @@ Voici la configuration recommandée :
 
 ---
 
-## 2. 🧱 Structure d’un projet Spring Boot
+## 2. 🧠 Théorie : le cœur de Spring
 
-Spring Boot vous aide à organiser automatiquement votre projet. Voici une architecture typique par couche :
+### 2.1. L'Inversion de Contrôle (IoC)
+
+Dans une application Java classique, c'est vous qui instanciez les objets (`new Service()`). Avec Spring, c'est le **Framework** qui crée et gère les objets pour vous. Ces objets gérés s'appellent des **Beans**.
+
+Le conteneur Spring (ApplicationContext) :
+
+1. Scanne votre code au démarrage
+2. Détecte les classes annotées (`@Component`, `@Service`, `@RestController`, `@Repository`)
+3. Les instancie (singleton par défaut) et les injecte là où c'est nécessaire
+
+### 2.2. Architecture en couches
+
+Nous respectons une séparation stricte des responsabilités (SoC) :
+
+1. **Presentation** (`controller`) : Reçoit la requête HTTP, valide les entrées, appelle le Service. Aucune logique métier ici
+2. **Application** (`service`) : Contient les règles métier, les validations complexes, l'orchestration
+3. **Infrastructure** (`repository`) : Dialogue avec la base de données via JPA
 
 ```
 src/main/java/fr/corentinbringer/smarttasks
@@ -59,8 +74,6 @@ src/main/java/fr/corentinbringer/smarttasks
  ┣ 📂 model             # Modèles de données (entités)
  ┗ SmartTasksApplication.java
 ```
-
-Cette séparation respecte un principe fondamental : **la séparation des responsabilités**.
 
 | Couche        | Rôle principal                                                   |
 |---------------|------------------------------------------------------------------|

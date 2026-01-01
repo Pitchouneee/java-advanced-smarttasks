@@ -1,6 +1,6 @@
 # 02 – JPA & Relations
 
-Dans ce module, nous allons consolider l'usage de **Spring Data JPA** en modélisant les relations entre nos entités (`Project`, `Task`, `Attachment`). Nous allons passer d'un simple modèle CRUD à un modèle relationnel complet, en intégrant des mécanismes d'automatisation et de performance cruciaux pour notre backend SmartTasks.
+Dans ce module, nous passons d'un modèle simple à un modèle relationnel complet. Nous allons modéliser les relations entre `Project`, `Task` et `Attachment`, et optimiser les performances de nos requêtes.
 
 -----
 
@@ -8,20 +8,40 @@ Dans ce module, nous allons consolider l'usage de **Spring Data JPA** en modéli
 
 À la fin de ce chapitre, vous saurez :
 
-✅ Créer des entités JPA complètes et gérées automatiquement. \
-✅ Gérer les relations bidirectionnelles `@OneToMany` et `@ManyToOne`. \
-✅ Comprendre et appliquer le chargement **LAZY** (paresseux) pour optimiser les performances. \
-✅ Utiliser `@PrePersist` pour définir automatiquement la date de création. \
-✅ Mettre en œuvre le motif DTO de manière complète avec la validation. \
-✅ Optimiser les requêtes de lecture en utilisant les **projections JPA** vers des DTOs.
+✅ Comprendre le **cycle de vie des entités JPA** (Managed, Detached) \
+✅ Modéliser des relations bidirectionnelles `@OneToMany` / `@ManyToOne` \
+✅ Maîtriser le **Lazy Loading** pour éviter les problèmes de performance (N+1 queries) \
+✅ Utiliser des **DTO** (Records) pour découpler l'API de la BDD \
+✅ Écrire des **projections JPQL** pour optimiser la lecture.
 
 -----
 
-## 1. 🧱 Rappel et Amélioration : L'Entité `Project`
+# 1. 🧠 Théorie : le contexte de persistance
+
+JPA (via Hibernate) n'est pas une simple connexion SQL. C'est un ORM (Object Relational Mapper) qui gère un contexte.
+
+## 1.1. Le cycle de vie d'une entité
+
+1. **Transient** : Juste un objet Java (`new Task()`), inconnu de la base
+2. **Managed** : L'objet est "suivi" par Hibernate. Toute modification (`task.setCompleted(true)`) sera automatiquement détectée (**Dirty Checking**) et sauvegardée en base à la fin de la transaction, même sans appeler `save()`
+3. **Detached** : La session est fermée, l'objet n'est plus synchronisé avec la base
+
+## 1.2. Le piège du Lazy Loading
+
+Pour les relations (ex: une liste de tâches dans un projet), Hibernate utilise des Proxies.
+
+1. **FetchType.LAZY** (Paresseux) : La donnée (la liste des tâches) n'est chargée que si on appelle le getter (getTasks()).
+2. **FetchType.EAGER** (Immédiat) : La donnée est chargée tout de suite, même si on n'en a pas besoin.
+
+> ⚠️ Règle d'or : Utilisez toujours LAZY pour les relations @OneToMany et @ManyToOne afin d'éviter de charger toute la base de données en mémoire. Cela empêche JPA de charger des gigaoctets de données inutiles à chaque requête simple, évitant ainsi le problème du "N+1 query problem".
+
+---
+
+## 2. 🧱 Rappel et amélioration : L'Entité `Project`
 
 Notre entité de base doit désormais gérer la date de création de manière automatique.
 
-### 👉 Gestion Automatique de la Date
+### 👉 Gestion automatique de la date
 
 Pour gérer la date de création (`createdOn`), nous utilisons l'annotation `@PrePersist` sur une méthode de l'entité `Project`.
 
@@ -58,11 +78,11 @@ public class Project {
 }
 ```
 
-## 2. 📌 Relation Project $\leftrightarrow$ Task (One-to-Many)
+## 3. 📌 Relation Project $\leftrightarrow$ Task (One-to-Many)
 
 Un projet possède plusieurs tâches, ce qui se traduit par une relation `@ManyToOne` sur la tâche.
 
-### 2.1. Entité `Task` (Côté *Many*)
+### 3.1. Entité `Task` (côté *Many*)
 
 L'entité `Task` porte la clé étrangère vers le projet.
 
@@ -101,9 +121,7 @@ public class Task {
 }
 ```
 
-> **Règle d'or LAZY/EAGER :** Par défaut, utilisez **`fetch = FetchType.LAZY`** sur les relations `@ManyToOne` et `@OneToMany`. Cela empêche JPA de charger des gigaoctets de données inutiles à chaque requête simple, évitant ainsi le problème du "N+1 query problem".
-
-### 2.2. Relation Inverse dans `Project` (Côté *One*)
+### 3.2. Relation Inverse dans `Project` (Côté *One*)
 
 Pour pouvoir accéder aux tâches depuis le projet, on ajoute la relation inverse.
 
@@ -122,9 +140,9 @@ private Set<Task> tasks;
   * **`cascade = CascadeType.ALL`** : Si vous supprimez le `Project`, toutes les `Task`s associées seront supprimées (comportement d'intégrité référentielle).
   * **`orphanRemoval = true`** : Si une tâche est retirée de cette collection, elle sera supprimée de la base.
 
-## 3. 📎 Relation Task $\leftrightarrow$ Attachment (Exercice)
+## 4. 📎 Relation Task $\leftrightarrow$ Attachment (Exercice)
 
-Une tâche peut avoir plusieurs Pièces Jointes stockées sur MinIO.
+Une tâche peut avoir plusieurs pièces jointes stockées sur MinIO.
 
 **Exercice pour l'étudiant :** Créez l'entité `Attachment.java` et mettez en place la relation bidirectionnelle entre `Task` et `Attachment` en vous basant sur les principes précédents et les champs de la solution finale fournie :
 
@@ -135,11 +153,11 @@ Une tâche peut avoir plusieurs Pièces Jointes stockées sur MinIO.
 2.  Mettez en place la relation `@ManyToOne` de `Attachment` vers `Task`.
 3.  Mettez en place la relation inverse `@OneToMany` de `Task` vers `Attachment`, avec les options `cascade` et `orphanRemoval`.
 
-## 4. 📦 DTO, Validation et Contrôleur
+## 5. 📦 DTO, validation et contrôleur
 
 Dans une application REST performante, nous devons souvent retourner une version simplifiée de l'entité (un DTO) sans charger toutes les relations. Spring Data JPA le permet via les projections directes en JPQL.
 
-### 4.1. DTO de Création et Validation
+### 5.1. DTO de création et validation
 
 Le DTO de création de tâche (`TaskCreateRequest.java`) utilise la validation Spring.
 
@@ -170,7 +188,7 @@ public TaskResponse create(@PathVariable Long projectId, @Valid @RequestBody Tas
 
 > Si la validation échoue, l'application retourne automatiquement une erreur `400 Bad Request` gérée par `ApiExceptionHandler.java`.
 
-### 4.2. DTO de Réponse
+### 5.2. DTO de réponse
 
 Le DTO de réponse doit refléter précisément les données attendues par le front (ex: `TaskDetail.tsx` ou `ProjectDetail.tsx`).
 
@@ -193,7 +211,7 @@ public record TaskResponse(
 ) {}
 ```
 
-## 5. 🔍 Repository Avancé : Les Projections
+## 6. 🔍 Repository avancé : Les projections
 
 Pour la liste des projets, le front n'a pas besoin de la liste des tâches (qui serait très coûteuse à charger en EAGER). Pour cela, on demande à JPA de projeter le résultat directement dans un DTO `ProjectListResponse` **sans charger l'entité complète**.
 

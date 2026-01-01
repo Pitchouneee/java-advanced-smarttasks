@@ -1,344 +1,192 @@
-Voici le fichier `api-spec.md` mis à jour et complet, prêt à être téléchargé.
+# 📋 Cahier des charges – Endpoints API (SmartTasks)
 
-[api-spec.md](https://www.google.com/search?q=api-spec.md)
+Ce document définit le contrat d'interface strict que le backend doit respecter pour fonctionner avec le frontend React fourni.
 
-````file_content
-# 📋 Cahier des charges – Endpoints API
-
-Ce document définit **les endpoints REST que le backend doit exposer** afin de permettre l’intégration complète avec le front-end React fourni.
-
-> 🎯 Le front pilote la structure de l’API.
-> Tous les noms de routes, de champs et de formats doivent être strictement respectés.
+> 🎯 **Règle d'or** : Le front-end (React) est le "client". Le backend doit s'adapter à ses attentes (noms des champs, formats, endpoints).
 
 ---
 
-## 🏗️ Structures de Données Communes
+## 🛠️ Contraintes techniques globales
 
-### `PageResponse<T>` (Réponse de Pagination)
-Utilisée pour les collections paginées.
+### 1. Headers HTTP
+Le frontend envoie systématiquement l'en-tête suivant pour identifier l'organisation. Vous devez l'utiliser pour filtrer les données (Multi-tenancy).
+
+| Header | Description | Exemple |
+| :--- | :--- | :--- |
+| `X-Tenant-ID` | Identifiant de l'utilisateur courant. | `demo` |
+| `Authorization` | Token JWT (Bearer). | `Bearer eyJhbG...` |
+
+### 2. Formats de données
+* **Dates** : Format ISO 8601 strict (`yyyy-MM-dd'T'HH:mm:ss`).
+* **ID** : Format `string` ou `number` (le front gère les deux, mais préférez `Long` côté JSON).
+
+---
+
+## 🏗️ Structures de données (DTO)
+
+### `PageResponse<T>` (Pagination)
+Structure standard utilisée pour toutes les listes.
 ```json
 {
-  "content": [
-    { /* Liste des objets T (Project, Task, or Attachment) */ }
-  ],
+  "content": [ { ... } ],
   "empty": false,
   "first": true,
   "last": false,
-  "number": 0,
-  "numberOfElements": 10,
-  "size": 10,
+  "number": 0,          // Page courante (index 0)
+  "size": 20,           // Éléments par page
+  "totalPages": 5,
   "totalElements": 42,
-  "totalPages": 5
+  "numberOfElements": 10
 }
-````
 
-### `Project` (Projet)
-
-```json
-{
-  "id": "string",
-  "name": "string",
-  "createdOn": "ISO 8601 date"
-}
 ```
 
-### `Task` (Tâche)
+### `Project`
 
-```json
-{
-  "id": "string",
-  "projectId": "string",
-  "title": "string",
-  "description": "string",
-  "dueDate": "ISO 8601 date | null",
-  "createdAt": "ISO 8601 date"
-}
-```
-
-### `Attachment` (Pièce Jointe)
+⚠️ Notez le nom du champ date : `createdOn`.
 
 ```json
 {
   "id": 1,
-  "originalName": "string",
-  "size": 1024,
-  "mimeType": "string",
-  "data": "string (Relative or absolute endpoint to download the file, e.g., /api/attachments/1/download)",
-  "createdAt": "ISO 8601 date"
+  "name": "Campagne Marketing 2025",
+  "createdOn": "2025-01-01T10:00:00"
 }
+
 ```
 
-### `DashboardResponse` (Tableau de Bord)
+### `Task`
 
 ```json
 {
-  "activeProjectsCount": 5,
-  "totalTasksCount": 50,
-  "overdueTasksCount": 2,
-  "latestProjects": [
-    { /* Project object */ }
-  ]
+  "id": 101,
+  "projectId": 1,
+  "title": "Rédiger le brief",
+  "description": "Détails de la tâche...",
+  "dueDate": "2025-02-15",  // Optionnel (peut être null)
+  "createdOn": "2025-01-02T14:30:00"
 }
+
 ```
 
------
-
-## 📁 Ressource : Projet (`Project`)
-
-### ✅ POST `/api/projects`
-
-**Objectif** : Créer un nouveau projet.
-
-#### 🔸 Corps de la requête (`application/json`)
-
-| Champ | Type | Description |
-| :--- | :--- | :--- |
-| `name` | `string` | Le nom du nouveau projet. |
+### `Attachment`
 
 ```json
 {
-  "name": "Projet démo"
-}
-```
-
-#### ✅ Réponse (`201 Created`)
-
-Retourne l'objet `Project` créé.
-
-```json
-{
-  "id": "1",
-  "name": "Projet démo",
-  "createdOn": "2025-12-04T14:00:00Z"
-}
-```
-
------
-
-### ✅ GET `/api/projects`
-
-**Objectif** : Lister les projets avec pagination.
-
-#### 🔸 Paramètres de requête (Query)
-
-| Nom | Type | Description |
-| :--- | :--- | :--- |
-| `page` | `number` | Numéro de la page (commence à 0). Par défaut: 0. |
-| `size` | `number` | Nombre d'éléments par page. Par défaut: 20. |
-
-#### ✅ Réponse (`200 OK`)
-
-Retourne une `PageResponse<Project>`. (Voir structure `Project` et `PageResponse` ci-dessus).
-
-```json
-{
-  "content": [
-    { "id": "1", "name": "Projet démo", "createdOn": "2025-12-04T14:00:00Z" },
-    { "id": "2", "name": "Roadmap 2026", "createdOn": "2025-12-05T08:30:00Z" }
-  ],
-  "totalElements": 2,
-  "totalPages": 1,
-  "number": 0,
-  "size": 20,
-  "...": "..."
-}
-```
-
------
-
-### ✅ GET `/api/projects/{id}`
-
-**Objectif** : Récupérer les détails d'un projet.
-
-#### 🔸 Réponse
-
-  * `200 OK`: Retourne un objet `Project`.
-  * `404 Not Found`: Si l'ID du projet n'existe pas.
-
-<!-- end list -->
-
-```json
-{
-  "id": "1",
-  "name": "Projet démo",
-  "createdOn": "2025-12-04T14:00:00Z"
-}
-```
-
------
-
-## 📝 Ressource : Tâche (`Task`)
-
-### ✅ GET `/api/projects/{projectId}/tasks`
-
-**Objectif** : Lister les tâches d'un projet spécifique, avec pagination.
-
-#### 🔸 Paramètres de requête (Query)
-
-| Nom | Type | Description |
-| :--- | :--- | :--- |
-| `page` | `number` | Numéro de la page (commence à 0). Par défaut: 0. |
-| `size` | `number` | Nombre d'éléments par page. Par défaut: 20. |
-
-#### ✅ Réponse (`200 OK`)
-
-Retourne une `PageResponse<Task>`. (Voir structure `Task` et `PageResponse` ci-dessus).
-
------
-
-### ✅ POST `/api/projects/{projectId}/tasks`
-
-**Objectif** : Créer une nouvelle tâche dans un projet.
-
-#### 🔸 Corps de la requête (`application/json`)
-
-| Champ | Type | Description |
-| :--- | :--- | :--- |
-| `title` | `string` | Le titre de la tâche (Requis). |
-| `description` | `string` | La description de la tâche. |
-| `dueDate` | `string` | Date limite de la tâche (Format ISO 8601). |
-
-```json
-{
-  "title": "Ajouter un endpoint",
-  "description": "Décrire le nouvel endpoint dans la spécification.",
-  "dueDate": "2026-01-15"
-}
-```
-
-#### ✅ Réponse (`201 Created`)
-
-Retourne l'objet `Task` créé.
-
-```json
-{
-  "id": "101",
-  "projectId": "1",
-  "title": "Ajouter un endpoint",
-  "description": "Décrire le nouvel endpoint dans la spécification.",
-  "dueDate": "2026-01-15T00:00:00Z",
-  "createdAt": "2025-12-05T10:00:00Z"
-}
-```
-
------
-
-### ✅ GET `/api/tasks/{id}`
-
-**Objectif** : Récupérer les détails d'une tâche.
-
-#### 🔸 Réponse
-
-  * `200 OK`: Retourne un objet `Task`.
-  * `404 Not Found`: Si l'ID de la tâche n'existe pas.
-
-<!-- end list -->
-
-```json
-{
-  "id": "101",
-  "projectId": "1",
-  "title": "Ajouter un endpoint",
-  "description": "Décrire le nouvel endpoint dans la spécification.",
-  "dueDate": "2026-01-15T00:00:00Z",
-  "createdAt": "2025-12-05T10:00:00Z"
-}
-```
-
------
-
-## 📎 Ressource : Pièce Jointe (`Attachment`)
-
-### ✅ GET `/api/tasks/{taskId}/attachments`
-
-**Objectif** : Lister les pièces jointes d'une tâche, avec pagination.
-
-#### 🔸 Paramètres de requête (Query)
-
-| Nom | Type | Description |
-| :--- | :--- | :--- |
-| `page` | `number` | Numéro de la page (commence à 0). Par défaut: 0. |
-| `size` | `number` | Nombre d'éléments par page. Par défaut: 20. |
-
-#### ✅ Réponse (`200 OK`)
-
-Retourne une `PageResponse<Attachment>`. (Voir structure `Attachment` et `PageResponse` ci-dessus).
-
------
-
-### ✅ POST `/api/tasks/{taskId}/attachments`
-
-**Objectif** : Uploader une nouvelle pièce jointe pour une tâche.
-
-#### 🔸 Corps de la requête (`multipart/form-data`)
-
-| Champ | Type | Description |
-| :--- | :--- | :--- |
-| `file` | `File` | Le fichier à uploader. |
-
-#### ✅ Réponse (`201 Created`)
-
-Retourne l'objet `Attachment` créé.
-
-```json
-{
-  "id": 42,
-  "originalName": "rapport.pdf",
-  "size": 512000,
+  "id": 55,
+  "originalName": "cahier_des_charges.pdf",
+  "size": 102400,
   "mimeType": "application/pdf",
-  "data": "/api/attachments/42/download",
-  "createdAt": "2025-12-05T15:00:00Z"
+  "data": "/api/attachments/55/download", // URL relative de téléchargement
+  "createdOn": "2025-01-02T15:00:00"
 }
+
 ```
 
------
-
-### ✅ GET `/api/attachments/{id}/download`
-
-**Objectif** : Télécharger une pièce jointe.
-
-#### 🔸 Réponse (`200 OK`)
-
-Retourne le contenu du fichier (stream binaire).
-
------
-
-## 📊 Ressource : Tableau de Bord (`Dashboard`)
-
-### ✅ GET `/api/dashboard`
-
-**Objectif** : Récupérer les données agrégées pour le tableau de bord.
-
-#### ✅ Réponse (`200 OK`)
-
-Retourne un objet `DashboardResponse`.
+### `DashboardResponse`
 
 ```json
 {
-  "activeProjectsCount": 5,
-  "totalTasksCount": 50,
-  "overdueTasksCount": 2,
-  "latestProjects": [
-    { "id": "1", "name": "Projet démo", "createdOn": "2025-12-04T14:00:00Z" },
-    { "id": "2", "name": "Roadmap 2026", "createdOn": "2025-12-05T08:30:00Z" }
-  ]
+  "activeProjectsCount": 12,
+  "totalTasksCount": 45,
+  "overdueTasksCount": 3,
+  "latestProjects": [ { ... } ] // Liste d'objets Project
 }
+
 ```
 
------
+---
 
-## 🛠️ Contraintes techniques
+## 🚀 Endpoints API
 
-  - Respecter les noms exacts
-  - Les dates doivent être **en format ISO 8601** (`Z` ou `+00:00` accepté)
-  - Retourner un **code HTTP approprié** (`201`, `200`, `404`, etc.)
-  - L'authentification par jeton (`Authorization: Bearer <token>`) est implicite pour toutes les routes nécessitant un utilisateur.
-  - Les erreurs doivent être retournées au format :
+### 📁 Gestion des projets
 
-<!-- end list -->
+#### `GET /api/projects`
 
+Récupère la liste paginée des projets du tenant.
+
+* **Query Params** : `page` (int, defaut 0), `size` (int, defaut 20)
+* **Réponse** : `PageResponse<Project>`
+
+#### `GET /api/projects/{id}`
+
+Récupère un projet par son ID.
+
+* **Réponse** : Objet `Project`
+* **Erreur** : `404 Not Found` si inexistant.
+
+#### `POST /api/projects`
+
+Crée un nouveau projet.
+
+* **Body** : `{ "name": "Nouveau Projet" }`
+* **Réponse** : Objet `Project` créé (avec ID et date).
+
+---
+
+### 📝 Gestion des tâches
+
+#### `GET /api/projects/{projectId}/tasks`
+
+Liste les tâches d'un projet spécifique.
+
+* **Query Params** : `page`, `size`
+* **Réponse** : `PageResponse<Task>`
+
+#### `POST /api/projects/{projectId}/tasks`
+
+Crée une tâche dans un projet.
+
+* **Body** :
 ```json
 {
-  "error": "Message explicite"
+  "title": "Titre tâche",
+  "description": "Description...",
+  "dueDate": "2025-12-31" // Optionnel
 }
+
 ```
+
+
+* **Réponse** : Objet `Task` créé.
+
+#### `GET /api/tasks/{id}`
+
+Récupère le détail d'une tâche (utilisé dans la page de détail).
+
+* **Réponse** : Objet `Task`
+
+---
+
+### 📎 Gestion des fichiers (Attachments)
+
+#### `GET /api/tasks/{taskId}/attachments`
+
+Liste les fichiers liés à une tâche.
+
+* **Query Params** : `page`, `size`
+* **Réponse** : `PageResponse<Attachment>`
+
+#### `POST /api/tasks/{taskId}/attachments`
+
+Upload un fichier pour une tâche.
+
+* **Content-Type** : `multipart/form-data`
+* **Body** : Champ `file` (binaire)
+* **Réponse** : Objet `Attachment` créé (contenant le lien `data` généré).
+
+#### `GET /api/attachments/{id}/download`
+
+Télécharge le fichier binaire.
+
+* **Réponse** : Stream binaire du fichier.
+* **Headers attendus** : `Content-Type` (ex: application/pdf) et `Content-Disposition` (attachment; filename="...").
+
+---
+
+### 📊 Tableau de bord
+
+#### `GET /api/dashboard`
+
+Données agrégées pour l'accueil.
+
+* **Réponse** : Objet `DashboardResponse`

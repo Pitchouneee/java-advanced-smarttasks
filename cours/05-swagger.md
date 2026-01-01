@@ -1,289 +1,179 @@
 # 05 – Swagger / OpenAPI & Intégration Front
 
-Dans ce module, nous allons :
+Une API REST sans documentation est inutilisable. Dans ce module, nous allons :
 
-1. Documenter l’API SmartTasks avec **OpenAPI / Swagger**
-2. Exposer une UI de test pour les endpoints
-3. Préparer l’intégration côté **front React** (appel de l’API depuis le navigateur)
+1. Générer automatiquement une documentation interactive via **OpenAPI (Swagger)**.
+2. Connecter le front-end React fourni à votre API Backend.
 
 ---
 
 # 🎯 Objectifs du module
 
-À la fin de ce chapitre, vous serez capables de :
-
-* Ajouter la documentation OpenAPI à un projet Spring Boot
-* Exposer Swagger UI pour tester vos endpoints
-* Structurer une couche d’accès API côté React
-* Gérer les URLs d’API via variables d’environnement
-* Comprendre les bases de CORS côté backend
+✅ Intégrer **SpringDoc OpenAPI** pour générer la documentation.
+✅ Utiliser les annotations `@Operation`, `@ApiResponse` pour enrichir la doc.
+✅ Comprendre le mécanisme **CORS** et comment l'autoriser dans Spring Security.
+✅ Configurer le client HTTP du front-end via les variables d'environnement.
 
 ---
 
-# 📦 1. Ajouter Swagger / OpenAPI à Spring Boot
+# 📖 1. Documentation automatique (OpenAPI)
 
-Nous utilisons **springdoc-openapi**, librairie standard pour Spring Boot.
+Nous utilisons la librairie standard **SpringDoc**. Elle analyse vos contrôleurs au démarrage et génère une page web de test.
 
-Dans `pom.xml` :
+### 1.1. Dépendance
+
+Ajoutez ceci dans `pom.xml` :
 
 ```xml
 <dependency>
     <groupId>org.springdoc</groupId>
     <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-    <version>2.5.0</version>
+    <version>2.3.0</version>
 </dependency>
+
 ```
 
-> ⚠️ Vérifiez que la version est compatible avec votre version de Spring Boot.
+### 1.2. Tester l'interface
 
----
+Une fois l'application relancée (`SmartTasksApplication`), ouvrez :
+➡️ **[http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)**
 
-# 🌐 2. Endpoints OpenAPI / Swagger UI
+Vous devriez voir vos endpoints (`/api/projects`, `/api/tasks`...). Essayez de lancer une requête via le bouton "Try it out".
 
-Une fois la dépendance ajoutée et l’application redémarrée :
+### 1.3. Enrichir la documentation
 
-* Documentation brute JSON :  
-  ➡️ `http://localhost:8080/v3/api-docs`
+Par défaut, la doc est technique. Ajoutons des descriptions métier.
 
-* Interface Swagger UI :  
-  ➡️ `http://localhost:8080/swagger-ui/index.html`
-
-Swagger UI permet de :
-
-* Lister tous les endpoints
-* Voir les verbes HTTP, paramètres, body, réponses
-* Tester directement l’API depuis le navigateur
-
----
-
-# 🧩 3. Exemple d’annotations OpenAPI
-
-Pour enrichir la documentation, vous pouvez utiliser des annotations comme `@Operation` et `@Parameter` .
-
-Exemple sur `ProjectController` :
+**Exercice :** Mettez à jour `ProjectController`.
 
 ```java
 @RestController
 @RequestMapping("/api/projects")
 @RequiredArgsConstructor
+@Tag(name = "Projets", description = "Gestion des projets de l'entreprise") // Groupe l'API
 public class ProjectController {
 
-    private final ProjectService service;
+    private final ProjectService projectService;
 
-    @Operation(summary = "Liste tous les projets de l'entreprise courante")
+    @Operation(summary = "Lister les projets", description = "Retourne la liste paginée des projets du tenant courant.")
     @GetMapping
-    public List<ProjectDto> findAll() {
-        return service.findAll().stream()
-            .map(ProjectMapper::toDto)
-            .toList();
+    public Page<ProjectListResponse> findAll(Pageable pageable) {
+        return projectService.findAll(pageable);
     }
 
-    @Operation(summary = "Crée un nouveau projet")
-    @ApiResponses({
-        @ApiResponse(responseCode = "201", description = "Projet créé"),
-        @ApiResponse(responseCode = "400", description = "Requête invalide"),
+    @Operation(summary = "Créer un projet")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Projet créé avec succès"),
+        @ApiResponse(responseCode = "400", description = "Données invalides (ex: nom vide)")
     })
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ProjectDto create(@Valid @RequestBody CreateProjectRequest request) {
-        return ProjectMapper.toDto(service.create(request));
+    public ProjectResponse create(@Valid @RequestBody ProjectCreateRequest request) {
+        return projectService.create(request);
     }
 }
+
 ```
 
-> Les DTO utilisés (ici `ProjectDto` , `CreateProjectRequest` ) seront automatiquement décrits dans le schéma OpenAPI.
+> 💡 **Devoir :** Faites la même chose pour `TaskController` et `AttachmentController`.
 
 ---
 
-# 🌍 4. CORS (Cross-Origin Resource Sharing)
+# 🌍 2. Autoriser le front-end (CORS)
 
-Le front React tourne souvent sur `http://localhost:5173` (Vite), 
-le backend sur `http://localhost:8080` .
+Le front-end tourne sur `http://localhost:5173`.
+Le backend tourne sur `http://localhost:8080`.
 
-👉 Sans configuration CORS, le navigateur peut bloquer les requêtes.
+Par sécurité, le navigateur bloque les requêtes AJAX entre deux domaines/ports différents. C'est la sécurité **CORS** (Cross-Origin Resource Sharing).
 
-Configuration simple dans `SecurityConfig` ou une classe de config dédiée :
+**Exercice :** Dans `SecurityConfig.java`, assurez-vous que le bean CORS est correct.
 
 ```java
 @Bean
-public WebMvcConfigurer corsConfigurer() {
-    return new WebMvcConfigurer() {
-        @Override
-        public void addCorsMappings(CorsRegistry registry) {
-            registry.addMapping("/api/**")
-                .allowedOrigins("http://localhost:5173")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-                .allowedHeaders("*")
-                .exposedHeaders("Authorization")
-                .allowCredentials(true);
-        }
-    };
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration config = new CorsConfiguration();
+    
+    // Autoriser le port du front-end (Vite)
+    config.setAllowedOrigins(List.of("http://localhost:5173"));
+    
+    // Autoriser les verbes HTTP utilisés
+    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    
+    // Autoriser tous les headers (notamment Authorization pour le JWT)
+    config.setAllowedHeaders(List.of("*"));
+    
+    // Autoriser l'envoi de cookies/credentials (si besoin)
+    config.setAllowCredentials(true);
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", config);
+    return source;
 }
+
 ```
 
 ---
 
-# 🧱 5. Intégration côté front React
+# 🖥️ 3. Configuration du front-end
 
-Côté front, on centralise les appels API dans un **client HTTP**.
+Le code React vous est fourni dans le dossier `projet-front`. Il utilise **Vite** comme outil de build.
 
-## a) Variable d’environnement Vite
+### 3.1. Variable d'environnement
 
-Dans `projet-front` , créez un fichier `.env` :
+Le front-end ne doit pas avoir l'URL du backend "en dur" dans le code. Elle doit être configurable.
 
-```env
+**Action :**
+
+1. Allez dans le dossier `projet-front`.
+2. Dupliquez le fichier `.env.example` et renommez-le en `.env`.
+3. Vérifiez son contenu :
+
+```properties
+# URL de votre API Spring Boot
 VITE_API_BASE_URL=http://localhost:8080
+
+# Vos identifiants Google (déjà configurés normalement)
+VITE_GOOGLE_CLIENT_ID=...
+
 ```
 
-Dans le code React, vous y accédez via :
-
-```ts
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-```
-
----
-
-## b) Client Axios
-
-Installer Axios (si pas déjà) :
+### 3.2. Lancer le front-end
 
 ```bash
-npm install axios
+cd projet-front
+npm install
+npm run dev
+
 ```
 
-Créer un fichier `src/api/client.ts` :
-
-```ts
-import axios from "axios";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
-
-export const apiClient = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
-});
-
-// Optionnel : intercepteur pour ajouter le JWT
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  const tenant = localStorage.getItem("tenant_id") || "demo";
-  config.headers["X-Tenant-ID"] = tenant;
-
-  return config;
-});
-```
+Ouvrez **[http://localhost:5173](http://localhost:5173)**.
 
 ---
 
-## c) Service pour les projets
+# 🚀 4. Test d'intégration complet
 
-Créer `src/api/projects.ts` :
+C'est le moment de vérité !
 
-```ts
-import { apiClient } from "./client";
+1. Assurez-vous que **Docker** (Postgres + MinIO) tourne.
+2. Assurez-vous que le **Backend** tourne (`SmartTasksApplication`).
+3. Assurez-vous que le **Front-end** tourne (`npm run dev`).
 
-export interface Project {
-  id: number;
-  name: string;
-}
+**Scénario de test :**
 
-export async function fetchProjects(): Promise<Project[]> {
-  const response = await apiClient.get<Project[]>("/projects");
-  return response.data;
-}
+1. Cliquez sur "Login with Google" sur le Front.
+2. Une fois connecté, vous arrivez sur le Dashboard.
+3. Allez dans "Projects" -> "Create Project".
+4. Créez "Projet Demo".
+5. Cliquez dessus, puis créez une Tâche "Test Integration".
+6. Ajoutez une pièce jointe à la tâche.
 
-export async function createProject(name: string): Promise<Project> {
-  const response = await apiClient.post<Project>("/projects", { name });
-  return response.data;
-}
-```
+Si tout fonctionne sans erreur rouge dans la console du navigateur (F12), félicitations ! 🎉
+Vous avez construit une application **Fullstack**, **Sécurisée** et **Cloud-Ready**.
 
 ---
 
-# 🖥️ 6. Utilisation dans un composant React
+# ➡️ Prochain module
 
-Exemple rapide dans `src/features/projects/ProjectsPage.tsx` :
+Votre application fonctionne, mais le code backend mélange un peu tout (JPA, Métier, Web...).
+Pour la rendre maintenable sur 10 ans, nous allons la restructurer.
 
-```tsx
-import { useEffect, useState } from "react";
-import { fetchProjects, createProject, Project } from "../api/projects";
-
-export function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [name, setName] = useState("");
-
-  useEffect(() => {
-    fetchProjects().then(setProjects);
-  }, []);
-
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    const created = await createProject(name.trim());
-    setProjects((prev) => [...prev, created]);
-    setName("");
-  };
-
-  return (
-    <div>
-      <h1>Projets</h1>
-
-      <div>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nom du projet"
-        />
-        <button onClick={handleCreate}>Créer</button>
-      </div>
-
-      <ul>
-        {projects.map((p) => (
-          <li key={p.id}>{p.name}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-```
-
----
-
-# 🧪 7. Tester via Swagger + Front
-1. Démarrer le backend :  
-   
-
-```bash
-   mvn spring-boot:run
-   ```
-
-2. Démarrer le front :  
-   
-
-```bash
-   npm run dev
-   ```
-
-3. Vérifier les endpoints dans Swagger UI  
-   ➡️ `http://localhost:8080/swagger-ui/index.html`
-
-4. Vérifier l’affichage des projets dans la page React.
-
----
-
-# 🎓 8. Exercices
-1. Documenter tous les endpoints de `TaskController` via `@Operation`.
-2. Ajouter des réponses `@ApiResponse` pour les erreurs (404, 400).
-3. Ajouter dans le front :
-   - une liste de tâches pour un projet donné
-   - un formulaire de création de tâche
-
----
-
-# 📘 Prochain module
-
-➡️ **05 – Tests & CI**
-
-Vous avez maintenant une API documentée et un front capable de l’appeler proprement 🚀
+Passez au chapitre suivant : **06 – Clean Architecture & Refactoring**.

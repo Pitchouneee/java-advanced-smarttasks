@@ -1,231 +1,173 @@
-# 08 – Monolithe vs Microservices
+# 07 – Monolithe vs Microservices
 
-Ce dernier module de la semaine a pour objectif de vous donner une **vision architecturale globale**.  
-Nous allons comparer deux façons de structurer une application : **le monolithe** et **les microservices**.
+Ce dernier module a pour objectif de vous donner une **vision architecturale globale**.
+Nous allons comparer deux paradigmes : **le Monolithe (modulaire)** et **les Microservices**.
 
-C’est une compétence essentielle pour comprendre pourquoi SmartTasks reste un monolithe… et comment il pourrait évoluer plus tard.
+C’est une compétence essentielle pour comprendre pourquoi SmartTasks est construit ainsi, et comment l'architecture "Clean" du module précédent prépare l'avenir.
 
 ---
 
 # 🎯 Objectifs du module
 
-À la fin de ce chapitre, vous serez capables de :
-
-* Expliquer les différences entre monolithe et microservices
-* Comprendre les avantages / inconvénients de chaque modèle
-* Identifier quand utiliser l’un ou l’autre
-* Découper un monolithe vers une architecture microservices
-* Visualiser une architecture moderne avec API Gateway, discovery, etc.
+✅ Distinguer le **Monolithe spaghetti** du **Monolithe modulaire**.
+✅ Comprendre les **compromis** (Trade-offs) des Microservices (Complexité vs Scalabilité).
+✅ Faire le lien entre **Clean Architecture** et découpage en services.
+✅ Visualiser une architecture distribuée (Gateway, Discovery, Broker).
 
 ---
 
-# 🧩 1. Définition : Monolithe
+# 🏰 1. Le Monolithe : Pas une insulte !
 
-Un **monolithe** est une application unique qui contient :
+Un **monolithe** est une application où tous les modules (Projet, Tâche, Utilisateur) sont packagés et déployés ensemble (un seul `.jar`).
 
-* le backend
-* les fonctionnalités métier
-* l’accès aux données
-* les services externes
-* les jobs
-* parfois le front
+### 1.1. Le Monolithe "Spaghetti" vs "Modulaire"
+
+* **Spaghetti** : Les controllers appellent directement les repositories, tout est mélangé. Impossible à découper.
+* **Modulaire (SmartTasks)** : Le code est séparé en packages distincts (`project`, `dashboard`, `infra`). Les modules communiquent via des interfaces claires.
 
 ### ✨ Avantages
 
-* Simple à développer
-* Simple à tester
-* Simple à déployer
-* Une seule base de code
-* Moins de complexité technique
-* Moins de coûts d’infrastructure
+* **Simplicité** : Un seul repo, un seul build, une seule BDD.
+* **Performance** : Les appels entre modules sont des appels de méthode (in-memory), pas de réseau.
+* **Transactions** : `@Transactional` garantit que tout est sauvegardé ou rien. C'est l'atout majeur (ACID).
 
 ### ⚠️ Inconvénients
 
-* Devient difficile à maintenir avec la taille
-* Une seule équipe doit coordonner tout
-* Un bug peut arrêter toute l’application
-* Déploiement unique → pas de granularité
-* Pas optimal pour les très grands systèmes
+* **Scalabilité** : On doit dupliquer toute l'application pour scaler, même si seul le module "Upload" est chargé.
+* **Technologie** : Difficile de changer de langage ou de framework sur une partie seulement.
 
 ---
 
-# 🔥 2. Définition : Microservices
+# 🐝 2. Les Microservices : La complexité distribuée
 
-Une architecture **microservices** découpe une application en plusieurs services indépendants :
+Une architecture **microservices** découpe l'application en services autonomes, communiquant via le réseau (HTTP/REST ou Messaging).
 
-Exemples :
-* `auth-service`
-* `task-service`
-* `project-service`
-* `file-service`
-* `notification-service`
-* etc.
+### Exemples pour SmartTasks :
 
-Chacun possède :
-
-* son code
-* sa base de données (ou schéma séparé)
-* son cycle de vie
-* ses déploiements
+* `auth-service` (Gère JWT)
+* `project-service` (Gère Projets & Tâches)
+* `file-service` (Gère MinIO)
 
 ### ✨ Avantages
 
-* Scalabilité indépendante
-* Déploiements indépendants
-* Équipes autonomes
-* Haute résilience
-* Technologie différente par service possible (polyglotte)
+* **Scalabilité fine** : On peut lancer 10 instances du `file-service` et 2 du `project-service`.
+* **Indépendance** : Une équipe peut travailler sur un service sans casser les autres.
+* **Résilience** : Si le service de notification plante, on peut toujours créer des tâches.
 
-### ⚠️ Inconvénients
+### ⚠️ Le prix à payer (Fallacies of Distributed Computing)
 
-* Complexité très élevée
-* Problèmes réseau, latence, timeouts
-* Monitoring obligatoire
-* Gestion des logs distribués
-* Transactions distribuées
-* Besoin d’un orchestrateur : Kubernetes
-* Besoin d’une API Gateway + Service Mesh
-* Débogage difficile
-* Coût financier important
+* **Latence** : Un appel réseau est lent et peut échouer.
+* **Cohérence** : Comment garantir qu'une tâche est créée ET que le fichier est uploadé si ce sont deux bases différentes ? (Adieu `@Transactional`, bonjour **SAGA**).
+* **Ops** : Nécessite Docker, Kubernetes, Monitoring (Grafana/Prometheus), Tracing (Jaeger)... Bien sur, ceci n'est pas une règle absolue.
 
 ---
 
-# 🏢 3. Quand choisir quoi ?
+# ⚖️ 3. Le bon choix au bon moment
 
-| Contexte | Monolithe | Microservices |
-|----------|-----------|---------------|
-| Petite équipe | ⭐⭐⭐⭐⭐ | ⭐ |
-| Projet étudiant | ⭐⭐⭐⭐⭐ | ⭐ |
-| Rapidité de développement | ⭐⭐⭐⭐⭐ | ⭐⭐ |
-| Application simple | ⭐⭐⭐⭐⭐ | ⭐ |
-| Grande entreprise | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Besoin de scalabilité extrême | ⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Déploiement cloud complexe | ⭐⭐ | ⭐⭐⭐⭐⭐ |
+| Critère | Monolithe Modulaire | Microservices |
+| --- | --- | --- |
+| **Taille de l'équipe** | < 20 développeurs | > 20 développeurs |
+| **Complexité domaine** | Faible à Moyenne | Très élevée |
+| **Time to Market** | Rapide 🚀 | Lent au début (Setup infra) |
+| **Performance** | Très haute (pas de réseau) | Latence réseau à gérer |
 
-Règle d’or :  
-➡️ **Commencer monolithe. Migrer en microservices uniquement quand nécessaire.**
+> **Règle d’or :** "Don't start with Microservices". Commencez par un Monolithe bien structuré (Clean Arch). Si (et seulement si) vous avez des problèmes de scale ou d'organisation, découpez-le.
 
 ---
 
-# 🏗️ 4. Pourquoi SmartTasks est un monolithe ?
+# 🔗 4. De la Clean Architecture aux microservices
 
-Le projet SmartTasks reste monolithique car :
+C'est ici que tout prend sens. Grâce au refactoring du Module 06, passer en microservices est "facile".
 
-* cours de 25h → monolithe = plus efficace
-* équipe étudiante → microservices trop lourds
-* fonctionnalités limitées
-* besoin de rester simple et pédagogique
-* déploiement facilité
+**Dans le Monolithe (Module 06) :**
+Le `TaskService` appelle `ProjectPort`. L'implémentation est `ProjectPersistenceAdapter` (appel BDD local).
 
-Pour un MVP / SaaS en début de vie :  
-👉 **Le monolithe est le meilleur choix.**
+**Vers Microservices :**
+Si on sort les Projets dans un service à part, on ne touche **PAS** au `TaskService` !
+On crée juste une nouvelle implémentation de `ProjectPort` :
 
----
+```java
+@Component
+public class ProjectHttpAdapter implements ProjectPort {
+    
+    private final RestClient restClient; // Client HTTP
 
-# 🔄 5. Comment migrer SmartTasks vers des microservices ?
-
-SmartTasks pourrait être découpé ainsi :
-
-### Microservice 1 – `auth-service`
-
-* Gestion des utilisateurs
-* JWT
-* OAuth2 / Keycloak
-
-### Microservice 2 – `project-service`
-
-* Projets
-* Tâches
-* Relations
-
-### Microservice 3 – `file-service`
-
-* Upload MinIO
-* Gestion des fichiers
-
-### Microservice 4 – `tenant-service`
-
-* Gestion des entreprises
-* Isolation multi-tenant
-
----
-
-# 🧭 6. Architecture type microservices
+    @Override
+    public Optional<Project> findById(Long id) {
+        // Au lieu de faire du SQL, on appelle l'autre microservice
+        return restClient.get()
+            .uri("http://project-service/api/projects/" + id)
+            .retrieve()
+            .body(Project.class);
+    }
+}
 
 ```
-              +----------------------+
-              |      API Gateway     |
-              +----------+-----------+
-                         |
-      +------------------+------------------+
-      |                  |                  |
-+-----v-----+      +-----v-----+      +-----v-----+
-|  Project  |      |   Files   |      |   Auth    |
-|  Service  |      |  Service  |      |  Service  |
-+-----------+      +-----------+      +-----------+
-      |                  |                  |
-+-----v-----+      +-----v-----+      +-----v-----+
-| Postgres  |      |  MinIO    |      |  Keycloak |
-+-----------+      +-----------+      +-----------+
+
+On peut également utiliser Feign dans l'environnement Spring Boot.
+
+👉 **La puissance de la Clean Architecture est là : le métier ne sait pas si la donnée vient de la BDD locale ou d'un service distant.**
+
+---
+
+# 🧭 5. Architecture cible distribuée
+
+Si SmartTasks devenait le nouveau Trello, voici l'architecture :
+
+```
+       Client (React)
+             │
+             ▼
+    +------------------+
+    |   API Gateway    |  (Route les requêtes, gère l'auth)
+    +--------+---------+
+             │
+    +--------+------------+------------------+
+    │                     │                  │
+    ▼                     ▼                  ▼
++--------------+   +--------------+   +--------------+
+| Project Svc  |   |   File Svc   |   | Notification |
+| (Postgres A) |   | (Postgres B) |   |     Svc      |
++--------------+   +-------+------+   +------+-------+
+                           │                 ▲
+                           ▼                 │
+                        MinIO             RabbitMQ (Async)
+
 ```
 
-Les microservices communiquent entre eux via :
+---
 
-* HTTP REST
-* Messaging (Kafka, RabbitMQ)
-* gRPC (optionnel)
+# 📝 6. Exercice de réflexion
+
+Vous êtes architecte. On vous demande d'extraire la gestion des fichiers (`Attachment`) dans un microservice dédié `storage-service`.
+
+1. **Impact BDD** : Que devient la table `attachments` ? Doit-elle rester liée aux tables `tasks` par une clé étrangère ?
+* *Réponse : Non, intégrité référentielle impossible entre 2 bases. On stocke juste l'ID.*
+
+
+2. **Communication** : Comment `TaskService` vérifie qu'un fichier existe avant de le lier ?
+* *Réponse : Appel synchrone (REST/Feign) vers `storage-service`.*
+
+
+3. **Nettoyage** : Si on supprime une tâche, comment supprimer les fichiers associés ?
+* *Réponse : Appel ssynchrone (Event Driven). `TaskService` publie un événement `TaskDeletedEvent` dans un broker (RabbitMQ/Kafka). Le `storage-service` écoute et supprime les fichiers.*
+
+
 
 ---
 
-# 🛠️ 7. Migration progressive (stratégie)
-1. **Identifier les frontières naturelles** du domaine (DDD)  
-   - tâches
-   - utilisateurs
-   - fichiers
+# 🏁 Conclusion du cours
 
-2. **Extraire un service à la fois**  
-   Ex : file-service → indépendant
+Félicitations ! 🎉 Vous avez traversé les concepts clés du développement Backend moderne :
 
-3. **Mettre en place une API Gateway**  
-   Pour exposer une seule URL publique.
+1. **Spring Boot & REST** (Les bases)
+2. **JPA & Relations** (La persistance)
+3. **Security & OAuth2** (La protection)
+4. **Multi-Tenancy** (L'isolation SaaS)
+5. **MinIO** (Le stockage Cloud)
+6. **Clean Architecture** (La maintenabilité)
+7. **Microservices** (La scalabilité)
 
-4. **Externaliser l’auth**  
-   → Keycloak ou Auth0
+Vous avez maintenant toutes les armes pour construire des applications robustes, sécurisées et évolutives.
 
-5. **Isoler les bases de données**  
-   → Un schéma ou base par service.
-
-6. **Mettre en place un orchestrateur**  
-   → Kubernetes
-
-7. **Monitoring distribué**  
-   → Prometheus, Grafana, Loki, Jaeger
-
----
-
-# 🧪 8. Exercices du module
-1. Proposer un découpage DDD de SmartTasks en 3 microservices.  
-2. Décrire les endpoints REST de chaque service.  
-3. Identifier les tables qui devraient être séparées.  
-4. Dessiner une architecture complète avec API Gateway.  
-5. Bonus : implémenter un mini `file-service` standalone.
-
----
-
-# 🏁 Conclusion du module (et du cours)
-
-Vous savez maintenant :
-
-* Créer une API Rest complète
-* Gérer JPA & relations
-* Implémenter la sécurité OAuth2 + JWT
-* Gérer le multi-tenant
-* Documenter une API
-* Tester & industrialiser un backend
-* Stocker des fichiers dans MinIO
-* Structurer un projet avec Clean Architecture
-* Comprendre les architectures modernes
-
-Vous êtes prêts pour développer des projets professionnels en Java 🚀
-
-Bravo pour votre travail sur SmartTasks ! 🎉
+**Bonne continuation dans votre carrière d'ingénieur !** 🚀
