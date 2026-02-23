@@ -142,17 +142,13 @@ Si SmartTasks devenait le nouveau Trello, voici l'architecture :
 Vous êtes architecte. On vous demande d'extraire la gestion des fichiers (`Attachment`) dans un microservice dédié `storage-service`.
 
 1. **Impact BDD** : Que devient la table `attachments` ? Doit-elle rester liée aux tables `tasks` par une clé étrangère ?
-* *Réponse : Non, intégrité référentielle impossible entre 2 bases. On stocke juste l'ID.*
-
+>! *Réponse : Non, intégrité référentielle impossible entre 2 bases. On stocke juste l'ID.*
 
 2. **Communication** : Comment `TaskService` vérifie qu'un fichier existe avant de le lier ?
-* *Réponse : Appel synchrone (REST/Feign) vers `storage-service`.*
-
+>! *Réponse : Appel synchrone (REST/Feign) vers `storage-service`.*
 
 3. **Nettoyage** : Si on supprime une tâche, comment supprimer les fichiers associés ?
-* *Réponse : Appel ssynchrone (Event Driven). `TaskService` publie un événement `TaskDeletedEvent` dans un broker (RabbitMQ/Kafka). Le `storage-service` écoute et supprime les fichiers.*
-
-
+>! *Réponse : Appel ssynchrone (Event Driven). `TaskService` publie un événement `TaskDeletedEvent` dans un broker (RabbitMQ/Kafka). Le `storage-service` écoute et supprime les fichiers.*
 
 ---
 
