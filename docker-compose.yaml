@@ -25,6 +25,18 @@ services:
     volumes:
       - minio_data:/data
 
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        sleep 10;
+        mc alias set myminio http://minio:9000 admin password;
+        mc mb myminio/my-bucket;
+        mc admin accesskey create myminio/ minioadmin --access-key gMqTmkWI7louRVP5lcFf --secret-key xf3fF0YEslRnrfRIxhrop1VYxXeAnfEr4uJIxWZD
+      "
+
 volumes:
   postgres_data:
   minio_data:
