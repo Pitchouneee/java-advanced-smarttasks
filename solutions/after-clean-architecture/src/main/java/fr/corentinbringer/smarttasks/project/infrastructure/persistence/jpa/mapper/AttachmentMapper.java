@@ -20,7 +20,7 @@ public class AttachmentMapper {
                 entity.getOriginalName(),
                 entity.getMimeType(),
                 entity.getSize(),
-                entity.getUploadedOn(),
+                entity.getCreatedOn(),
                 entity.getTask().getId()
         );
     }
@@ -37,7 +37,7 @@ public class AttachmentMapper {
         entity.setOriginalName(domain.originalName());
         entity.setMimeType(domain.mimeType());
         entity.setSize(domain.size());
-        entity.setUploadedOn(domain.uploadedOn());
+        entity.setCreatedOn(domain.createdOn());
 
         TaskEntity taskRef = new TaskEntity();
         taskRef.setId(domain.taskId());

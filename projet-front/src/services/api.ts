@@ -1,6 +1,7 @@
 export interface ProjectListResponse {
-  id: string;
+  id: number;
   name: string;
+  /** ISO 8601 UTC, ex. "2025-01-01T10:00:00Z" */
   createdOn: string;
 }
 
@@ -11,12 +12,15 @@ export interface ProjectCreateRequest {
 }
 
 export interface Task {
-  id: string;
-  projectId: string;
+  id: number;
+  projectId: number;
   title: string;
   description: string;
+  /** Date seule, ex. "2025-02-15" */
   dueDate?: string;
-  createdAt: string;
+  completed: boolean;
+  /** ISO 8601 UTC, ex. "2025-01-01T10:00:00Z" */
+  createdOn: string;
 }
 
 export interface Attachment {
@@ -28,19 +32,21 @@ export interface Attachment {
    * Relative or absolute endpoint to download the file.
    */
   data: string;
-  createdAt?: string;
+  /** ISO 8601 UTC, ex. "2025-01-01T10:00:00Z" */
+  createdOn: string;
 }
 
+/**
+ * Format Spring Data "VIA_DTO" (@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)).
+ */
 export interface PageResponse<T> {
   content: T[];
-  empty: boolean;
-  first: boolean;
-  last: boolean;
-  number: number;
-  numberOfElements: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
+  page: {
+    size: number;
+    number: number;
+    totalElements: number;
+    totalPages: number;
+  };
 }
 
 export interface DashboardResponse {
@@ -130,7 +136,7 @@ class ApiService {
     );
   }
 
-  async getProject(id: string): Promise<Project | null> {
+  async getProject(id: number): Promise<Project | null> {
     return this.request<Project | null>(
       `/api/projects/${id}`,
       { method: 'GET' },
@@ -149,7 +155,7 @@ class ApiService {
     );
   }
 
-  async getTasks(projectId: string, page = 0, size = 20): Promise<PageResponse<Task>> {
+  async getTasks(projectId: number, page = 0, size = 20): Promise<PageResponse<Task>> {
     return this.request<PageResponse<Task>>(
       `/api/projects/${projectId}/tasks`,
       { method: 'GET' },
@@ -158,11 +164,11 @@ class ApiService {
     );
   }
 
-  async getTask(id: string): Promise<Task | null> {
+  async getTask(id: number): Promise<Task | null> {
     return this.request<Task | null>(`/api/tasks/${id}`, { method: 'GET' }, true);
   }
 
-  async createTask(projectId: string, title: string, description: string, dueDate: string | undefined): Promise<Task> {
+  async createTask(projectId: number, title: string, description: string, dueDate: string | undefined): Promise<Task> {
     const payload = {
       title,
       description,
@@ -178,7 +184,7 @@ class ApiService {
     );
   }
 
-  async getAttachments(taskId: string, page = 0, size = 20): Promise<PageResponse<Attachment>> {
+  async getAttachments(taskId: number, page = 0, size = 20): Promise<PageResponse<Attachment>> {
     return this.request<PageResponse<Attachment>>(
       `/api/tasks/${taskId}/attachments`,
       { method: 'GET' },
@@ -187,7 +193,7 @@ class ApiService {
     );
   }
 
-  async createAttachment(taskId: string, file: File): Promise<Attachment> {
+  async createAttachment(taskId: number, file: File): Promise<Attachment> {
     const formData = new FormData();
     formData.append('file', file);
 

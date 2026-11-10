@@ -1,5 +1,6 @@
 package fr.corentinbringer.smarttasks.project.infrastructure.persistence.adapter;
 
+import fr.corentinbringer.smarttasks.exception.ResourceNotFoundException;
 import fr.corentinbringer.smarttasks.project.application.port.out.TaskPort;
 import fr.corentinbringer.smarttasks.project.domain.model.Task;
 import fr.corentinbringer.smarttasks.project.infrastructure.persistence.jpa.entity.TaskEntity;
@@ -33,9 +34,21 @@ public class TaskPersistenceAdapter implements TaskPort {
 
     @Override
     public Task save(Task task) {
-        TaskEntity entity = taskMapper.toEntity(task);
-        TaskEntity savedEntity = taskRepository.save(entity);
-        return taskMapper.toDomain(savedEntity);
+        if (task.id() == null) {
+            TaskEntity entity = taskMapper.toEntity(task);
+            TaskEntity savedEntity = taskRepository.save(entity);
+            return taskMapper.toDomain(savedEntity);
+        }
+
+        // Mise à jour : même raisonnement que ProjectPersistenceAdapter.save
+        // (ne pas écraser la collection `attachments`, qui est en orphanRemoval).
+        TaskEntity existing = taskRepository.findById(task.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+        existing.setTitle(task.title());
+        existing.setDescription(task.description());
+        existing.setDueDate(task.dueDate());
+        existing.setCompleted(task.completed());
+        return taskMapper.toDomain(existing);
     }
 
     @Override
@@ -46,5 +59,10 @@ public class TaskPersistenceAdapter implements TaskPort {
     @Override
     public long countOverdueTasksByTenantId(String tenantId, LocalDate today) {
         return taskRepository.countOverdueTasksByTenantId(tenantId, today);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        taskRepository.deleteById(id);
     }
 }

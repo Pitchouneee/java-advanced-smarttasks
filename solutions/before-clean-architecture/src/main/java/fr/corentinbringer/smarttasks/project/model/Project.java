@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Set;
 
 @Entity
@@ -28,13 +28,13 @@ public class Project {
     private String name;
 
     @Column(updatable = false, nullable = false)
-    private LocalDateTime createdOn;
+    private Instant createdOn;
 
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Task> tasks;
 
     @PrePersist
     protected void onCreate() {
-        this.createdOn = LocalDateTime.now();
+        this.createdOn = Instant.now();
     }
 }

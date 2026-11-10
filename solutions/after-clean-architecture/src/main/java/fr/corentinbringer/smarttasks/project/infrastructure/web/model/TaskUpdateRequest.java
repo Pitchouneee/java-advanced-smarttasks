@@ -1,0 +1,13 @@
+package fr.corentinbringer.smarttasks.project.infrastructure.web.model;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+import java.time.LocalDate;
+
+public record TaskUpdateRequest(
+        @NotBlank @Size(max = 100) String title,
+        String description,
+        LocalDate dueDate,
+        boolean completed
+) {}

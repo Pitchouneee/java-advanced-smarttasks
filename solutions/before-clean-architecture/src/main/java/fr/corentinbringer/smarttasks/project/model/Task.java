@@ -6,8 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Set;
 
 @Entity
@@ -32,7 +32,8 @@ public class Task {
     @Column(length = 100, nullable = false)
     private String title;
 
-    @Lob
+    // "text" plutôt que @Lob : sur PostgreSQL, @Lob crée une colonne oid (Large Object hors table)
+    @Column(columnDefinition = "text")
     private String description;
 
     private LocalDate dueDate;
@@ -41,13 +42,13 @@ public class Task {
     private boolean completed = false;
 
     @Column(updatable = false, nullable = false)
-    private LocalDateTime createdOn;
+    private Instant createdOn;
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Attachment> attachments;
 
     @PrePersist
     protected void onCreate() {
-        this.createdOn = LocalDateTime.now();
+        this.createdOn = Instant.now();
     }
 }

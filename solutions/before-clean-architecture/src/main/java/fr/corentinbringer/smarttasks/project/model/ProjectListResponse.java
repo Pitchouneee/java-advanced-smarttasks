@@ -1,9 +1,9 @@
 package fr.corentinbringer.smarttasks.project.model;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record ProjectListResponse(
         Long id,
         String name,
-        LocalDateTime createdOn
+        Instant createdOn
 ) {}

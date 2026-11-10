@@ -28,7 +28,14 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     Optional<Project> findByIdAndTenantId(Long id, String tenantId);
 
-    long countByTenantId(String tenantId);
+    /** Projets "actifs" : au moins une tâche non terminée. */
+    @Query("""
+           SELECT count(p)
+           FROM Project p
+           WHERE p.tenantId = :tenantId
+           AND EXISTS (SELECT t FROM Task t WHERE t.project = p AND t.completed = false)
+           """)
+    long countActiveByTenantId(@Param("tenantId") String tenantId);
 
     @Query("""
            SELECT new fr.corentinbringer.smarttasks.project.model.ProjectListResponse(

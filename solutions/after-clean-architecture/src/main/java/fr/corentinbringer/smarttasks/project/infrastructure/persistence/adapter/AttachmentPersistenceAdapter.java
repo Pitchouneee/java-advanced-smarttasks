@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -35,5 +36,20 @@ public class AttachmentPersistenceAdapter implements AttachmentPort {
         AttachmentEntity entity = attachmentMapper.toEntity(attachment);
         AttachmentEntity savedEntity = attachmentRepository.save(entity);
         return attachmentMapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        attachmentRepository.deleteById(id);
+    }
+
+    @Override
+    public List<String> findObjectKeysByTaskIdAndTenantId(Long taskId, String tenantId) {
+        return attachmentRepository.findObjectKeysByTaskIdAndTenantId(taskId, tenantId);
+    }
+
+    @Override
+    public List<String> findObjectKeysByProjectIdAndTenantId(Long projectId, String tenantId) {
+        return attachmentRepository.findObjectKeysByProjectIdAndTenantId(projectId, tenantId);
     }
 }

@@ -12,19 +12,22 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
 
-  minio:
-    image: minio/minio
-    container_name: smarttasks-minio
-    command: server /data --console-address ":9001"
+  # Stockage objet compatible S3 (remplace MinIO, dont l'édition Community n'est plus maintenue)
+  rustfs:
+    image: rustfs/rustfs:1.0.4          # version figée : pas de "latest" dans un TP
+    container_name: smarttasks-rustfs
+    restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+      RUSTFS_CONSOLE_ENABLE: "true"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:9000"   # API S3 (utilisée par Spring)
+      - "9001:9001"   # Console web : http://localhost:9001
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
 
 volumes:
   postgres_data:
-  minio_data:
+  rustfs_data:

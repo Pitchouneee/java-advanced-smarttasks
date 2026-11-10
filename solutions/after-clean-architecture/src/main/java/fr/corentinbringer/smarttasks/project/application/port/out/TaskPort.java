@@ -18,4 +18,6 @@ public interface TaskPort {
     long countByTenantId(String tenantId);
 
     long countOverdueTasksByTenantId(String tenantId, LocalDate today);
+
+    void deleteById(Long id);
 }

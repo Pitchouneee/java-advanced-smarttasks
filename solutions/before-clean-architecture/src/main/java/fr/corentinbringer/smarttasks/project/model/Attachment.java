@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "attachments")
@@ -36,7 +36,7 @@ public class Attachment {
     private long size;
 
     @Column(updatable = false, nullable = false)
-    private LocalDateTime uploadedOn;
+    private Instant createdOn;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id", nullable = false)
@@ -44,6 +44,6 @@ public class Attachment {
 
     @PrePersist
     protected void onCreate() {
-        this.uploadedOn = LocalDateTime.now();
+        this.createdOn = Instant.now();
     }
 }

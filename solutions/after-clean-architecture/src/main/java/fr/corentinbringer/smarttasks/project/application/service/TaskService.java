@@ -1,21 +1,24 @@
 package fr.corentinbringer.smarttasks.project.application.service;
 
+import fr.corentinbringer.smarttasks.exception.ResourceNotFoundException;
 import fr.corentinbringer.smarttasks.configuration.tenant.TenantContext;
+import fr.corentinbringer.smarttasks.project.application.model.CreateTaskCommand;
+import fr.corentinbringer.smarttasks.project.application.model.UpdateTaskCommand;
+import fr.corentinbringer.smarttasks.project.application.port.out.AttachmentPort;
 import fr.corentinbringer.smarttasks.project.application.port.out.TaskPort;
+import fr.corentinbringer.smarttasks.project.domain.event.AttachmentsDeletedEvent;
 import fr.corentinbringer.smarttasks.project.domain.model.Project;
 import fr.corentinbringer.smarttasks.project.domain.model.Task;
-import fr.corentinbringer.smarttasks.project.infrastructure.web.model.TaskCreateRequest;
-import fr.corentinbringer.smarttasks.project.infrastructure.web.model.TaskListResponse;
-import fr.corentinbringer.smarttasks.project.infrastructure.web.model.TaskResponse;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.NoSuchElementException;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -23,68 +26,50 @@ public class TaskService {
 
     private final TaskPort taskPort;
     private final ProjectService projectService;
+    private final AttachmentPort attachmentPort;
+    private final ApplicationEventPublisher eventPublisher;
 
-    private TaskResponse mapToResponse(Task task) {
-        return new TaskResponse(
-                task.id(),
-                task.title(),
-                task.description(),
-                task.dueDate(),
-                task.completed(),
-                task.projectId(),
-                task.createdOn()
-        );
-    }
-
-    private TaskListResponse mapToListResponse(Task task) {
-        return new TaskListResponse(
-                task.id(),
-                task.title(),
-                task.description(),
-                task.dueDate(),
-                task.completed()
-        );
-    }
-
-    @Transactional
-    public Page<TaskListResponse> findAllByProjectId(Long projectId, Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<Task> findAllByProjectId(Long projectId, Pageable pageable) {
         Project project = projectService.findById(projectId);
 
-        return taskPort.findAllByProjectIdAndTenantId(project.id(), TenantContext.getTenant(), pageable)
-                .map(this::mapToListResponse);
+        return taskPort.findAllByProjectIdAndTenantId(project.id(), TenantContext.getTenant(), pageable);
     }
 
+    @Transactional(readOnly = true)
     public Task findById(Long taskId) {
-        String tenantId = TenantContext.getTenant();
-        return taskPort.findByIdAndTenantId(taskId, tenantId)
-                .orElseThrow(() -> new NoSuchElementException("Task not found"));
+        return taskPort.findByIdAndTenantId(taskId, TenantContext.getTenant())
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
     }
 
     @Transactional
-    public TaskResponse create(Long projectId, TaskCreateRequest request) {
-        String tenantId = TenantContext.getTenant();
-        Project project = projectService.findById(projectId);
+    public Task create(Long projectId, CreateTaskCommand command) {
+        Project project = projectService.findById(projectId); // 404 si le projet n'est pas au tenant courant
 
-        Task newTask = new Task(
-                null,
-                tenantId,
-                project.id(),
-                request.title(),
-                request.description(),
-                request.dueDate(),
-                false,
-                LocalDateTime.now()
-        );
+        Task newTask = Task.create(TenantContext.getTenant(), project.id(),
+                command.title(), command.description(), command.dueDate(), Instant.now());
 
-        Task savedTask = taskPort.save(newTask);
-
-        return mapToResponse(savedTask);
+        return taskPort.save(newTask);
     }
 
     @Transactional
-    public TaskResponse findByIdResponse(Long taskId) {
+    public Task update(Long taskId, UpdateTaskCommand command) {
+        Task updated = findById(taskId)
+                .withDetails(command.title(), command.description(), command.dueDate(), command.completed());
+
+        return taskPort.save(updated);
+    }
+
+    @Transactional
+    public void delete(Long taskId) {
+        String tenantId = TenantContext.getTenant();
         Task task = findById(taskId);
-        return mapToResponse(task);
+
+        List<String> objectKeys = attachmentPort.findObjectKeysByTaskIdAndTenantId(task.id(), tenantId);
+
+        taskPort.deleteById(task.id());
+
+        eventPublisher.publishEvent(new AttachmentsDeletedEvent(objectKeys));
     }
 
     public long countAllTasks() {

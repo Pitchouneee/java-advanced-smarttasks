@@ -23,6 +23,6 @@ public class DashboardController {
     )
     @GetMapping
     public DashboardResponse getDashboardMetrics() {
-        return dashboardService.getDashboardData();
+        return DashboardResponse.from(dashboardService.getSummary());
     }
 }

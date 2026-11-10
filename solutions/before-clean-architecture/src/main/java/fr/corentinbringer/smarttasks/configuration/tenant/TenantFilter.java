@@ -15,6 +15,23 @@ import java.io.IOException;
 @Component
 public class TenantFilter extends OncePerRequestFilter {
 
+    /**
+     * Routes publiques : pas de JWT, donc pas de tenant. On ne les filtre pas
+     * (sinon elles répondraient 401 malgré le permitAll() de SecurityConfig).
+     * - /error : page d'erreur interne de Spring (sinon une erreur 404/500 devient un 401)
+     * - Swagger (module 04)
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest req) {
+        String path = req.getServletPath();
+
+        return path.equals("/error")
+                || path.startsWith("/swagger-ui/")
+                || path.equals("/swagger-ui.html")
+                || path.equals("/v3/api-docs")
+                || path.startsWith("/v3/api-docs/");
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
             throws ServletException, IOException {
