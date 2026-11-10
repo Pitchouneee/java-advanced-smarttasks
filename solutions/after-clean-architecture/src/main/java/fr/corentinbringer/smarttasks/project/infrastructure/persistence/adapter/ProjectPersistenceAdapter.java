@@ -1,5 +1,6 @@
 package fr.corentinbringer.smarttasks.project.infrastructure.persistence.adapter;
 
+import fr.corentinbringer.smarttasks.exception.ResourceNotFoundException;
 import fr.corentinbringer.smarttasks.project.application.port.out.ProjectPort;
 import fr.corentinbringer.smarttasks.project.domain.model.Project;
 import fr.corentinbringer.smarttasks.project.infrastructure.persistence.jpa.entity.ProjectEntity;
@@ -29,9 +30,20 @@ public class ProjectPersistenceAdapter implements ProjectPort {
 
     @Override
     public Project save(Project project) {
-        ProjectEntity entity = projectMapper.toEntity(project);
-        ProjectEntity savedEntity = projectRepository.save(entity);
-        return projectMapper.toDomain(savedEntity);
+        if (project.id() == null) {
+            ProjectEntity entity = projectMapper.toEntity(project);
+            ProjectEntity savedEntity = projectRepository.save(entity);
+            return projectMapper.toDomain(savedEntity);
+        }
+
+        // Mise à jour : on modifie l'entité "managed" (dirty checking) au lieu de
+        // sauvegarder une entité reconstruite par le mapper. Celle-ci aurait une
+        // collection `tasks` vide : avec orphanRemoval = true, le merge risquerait
+        // de supprimer toutes les tâches du projet.
+        ProjectEntity existing = projectRepository.findById(project.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+        existing.setName(project.name());
+        return projectMapper.toDomain(existing);
     }
 
     @Override
@@ -40,8 +52,8 @@ public class ProjectPersistenceAdapter implements ProjectPort {
     }
 
     @Override
-    public long countByTenantId(String tenantId) {
-        return projectRepository.countByTenantId(tenantId);
+    public long countActiveByTenantId(String tenantId) {
+        return projectRepository.countActiveByTenantId(tenantId);
     }
 
     @Override
@@ -51,5 +63,12 @@ public class ProjectPersistenceAdapter implements ProjectPort {
                 .stream()
                 .map(projectMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        // deleteById charge l'entité puis la supprime : les cascades JPA
+        // (tâches, puis pièces jointes) sont donc bien appliquées.
+        projectRepository.deleteById(id);
     }
 }

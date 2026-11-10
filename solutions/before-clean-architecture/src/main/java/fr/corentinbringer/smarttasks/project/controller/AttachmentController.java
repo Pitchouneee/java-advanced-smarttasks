@@ -4,14 +4,13 @@ import fr.corentinbringer.smarttasks.project.model.DownloadResult;
 import fr.corentinbringer.smarttasks.project.service.AttachmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 @RestController
@@ -25,12 +24,27 @@ public class AttachmentController {
     public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable Long id) {
         DownloadResult result = attachmentService.download(id);
 
-        String encodedFileName = URLEncoder.encode(result.fileName(), StandardCharsets.UTF_8).replace("+", "%20");
+        // Génère : attachment; filename="=?UTF-8?Q?...?="; filename*=UTF-8''rapport%20d%C3%A9cembre.pdf
+        // filename* (RFC 6266 / 5987) conserve espaces et accents ; Spring s'occupe de l'encodage.
+        ContentDisposition contentDisposition = ContentDisposition.attachment()
+                .filename(result.fileName(), StandardCharsets.UTF_8)
+                .build();
+
+        // Le type MIME vient du client à l'upload : il peut être absent
+        MediaType contentType = result.mimeType() != null
+                ? MediaType.parseMediaType(result.mimeType())
+                : MediaType.APPLICATION_OCTET_STREAM;
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"")
-                .header(HttpHeaders.CONTENT_TYPE, result.mimeType())
-                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(result.size()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .contentType(contentType)
+                .contentLength(result.size())
                 .body(result.resource());
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        attachmentService.delete(id);
     }
 }

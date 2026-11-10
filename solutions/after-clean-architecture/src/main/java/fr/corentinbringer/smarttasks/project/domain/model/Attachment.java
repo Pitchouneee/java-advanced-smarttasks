@@ -1,6 +1,6 @@
 package fr.corentinbringer.smarttasks.project.domain.model;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record Attachment(
         Long id,
@@ -9,6 +9,6 @@ public record Attachment(
         String originalName,
         String mimeType,
         long size,
-        LocalDateTime uploadedOn,
+        Instant createdOn,
         Long taskId
 ) {}

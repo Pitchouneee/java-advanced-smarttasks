@@ -11,7 +11,8 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?
 const ATTACHMENT_PAGE_SIZE = 10;
 
 export default function TaskDetail() {
-  const { taskId } = useParams<{ taskId: string }>();
+  const params = useParams<{ taskId: string }>();
+  const taskId = Number(params.taskId); // NaN (falsy) si absent ou invalide
   const { user, token } = useAuth();
   const { toast } = useToast();
   const [task, setTask] = useState<Task | null>(null);
@@ -50,9 +51,9 @@ export default function TaskDetail() {
 
       setProject(projectData);
       setAttachments(attachmentsData.content);
-      setAttachmentPage(attachmentsData.number);
-      setAttachmentTotalPages(attachmentsData.totalPages);
-      setAttachmentTotalElements(attachmentsData.totalElements);
+      setAttachmentPage(attachmentsData.page.number);
+      setAttachmentTotalPages(attachmentsData.page.totalPages);
+      setAttachmentTotalElements(attachmentsData.page.totalElements);
     } catch (error) {
       toast({
         title: 'Error',

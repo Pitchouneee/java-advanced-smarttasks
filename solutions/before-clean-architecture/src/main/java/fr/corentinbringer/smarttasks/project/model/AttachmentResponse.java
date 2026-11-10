@@ -1,9 +1,12 @@
 package fr.corentinbringer.smarttasks.project.model;
 
+import java.time.Instant;
+
 public record AttachmentResponse(
         Long id,
         String originalName,
         String mimeType,
         long size,
-        String data
+        String data,
+        Instant createdOn
 ) {}

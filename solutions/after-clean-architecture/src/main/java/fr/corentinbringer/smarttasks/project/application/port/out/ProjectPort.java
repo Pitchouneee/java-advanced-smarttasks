@@ -15,7 +15,10 @@ public interface ProjectPort {
 
     Optional<Project> findByIdAndTenantId(Long id, String tenantId);
 
-    long countByTenantId(String tenantId);
+    /** Nombre de projets ayant au moins une tâche non terminée. */
+    long countActiveByTenantId(String tenantId);
 
     List<Project> findLatestProjectsByTenantId(String tenantId, int limit);
+
+    void deleteById(Long id);
 }

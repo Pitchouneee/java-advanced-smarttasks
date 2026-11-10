@@ -1,7 +1,7 @@
 package fr.corentinbringer.smarttasks.project.model;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 public record TaskResponse(
         Long id,
@@ -10,5 +10,5 @@ public record TaskResponse(
         LocalDate dueDate,
         boolean completed,
         Long projectId,
-        LocalDateTime createdOn
+        Instant createdOn
 ) {}

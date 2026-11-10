@@ -1,16 +1,20 @@
 package fr.corentinbringer.smarttasks.project.service;
 
+import fr.corentinbringer.smarttasks.exception.ResourceNotFoundException;
 import fr.corentinbringer.smarttasks.configuration.tenant.TenantContext;
+import fr.corentinbringer.smarttasks.project.event.AttachmentsDeletedEvent;
 import fr.corentinbringer.smarttasks.project.model.*;
+import fr.corentinbringer.smarttasks.project.repository.AttachmentRepository;
 import fr.corentinbringer.smarttasks.project.repository.TaskRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.NoSuchElementException;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +22,20 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final ProjectService projectService;
+    private final AttachmentRepository attachmentRepository;
+    private final ApplicationEventPublisher eventPublisher;
+
+    private TaskResponse toResponse(Task task) {
+        return new TaskResponse(
+                task.getId(),
+                task.getTitle(),
+                task.getDescription(),
+                task.getDueDate(),
+                task.isCompleted(),
+                task.getProject().getId(),
+                task.getCreatedOn()
+        );
+    }
 
     @Transactional
     public Page<TaskListResponse> findAllByProjectId(Long projectId, Pageable pageable) {
@@ -29,7 +47,7 @@ public class TaskService {
     public Task findById(Long taskId) {
         String tenantId = TenantContext.getTenant();
         return taskRepository.findByIdAndTenantId(taskId, tenantId)
-                .orElseThrow(() -> new NoSuchElementException("Task not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
     }
 
     @Transactional
@@ -46,30 +64,40 @@ public class TaskService {
 
         Task savedTask = taskRepository.save(task);
 
-        return new TaskResponse(
-                savedTask.getId(),
-                savedTask.getTitle(),
-                savedTask.getDescription(),
-                savedTask.getDueDate(),
-                savedTask.isCompleted(),
-                savedTask.getProject().getId(),
-                savedTask.getCreatedOn()
-        );
+        return toResponse(savedTask);
     }
 
     @Transactional
     public TaskResponse findByIdResponse(Long taskId) {
         Task task = findById(taskId);
 
-        return new TaskResponse(
-                task.getId(),
-                task.getTitle(),
-                task.getDescription(),
-                task.getDueDate(),
-                task.isCompleted(),
-                task.getProject().getId(),
-                task.getCreatedOn()
-        );
+        return toResponse(task);
+    }
+
+    @Transactional
+    public TaskResponse update(Long taskId, TaskUpdateRequest request) {
+        Task task = findById(taskId);
+
+        // Dirty checking : pas besoin de save(), l'UPDATE est fait au commit.
+        task.setTitle(request.title());
+        task.setDescription(request.description());
+        task.setDueDate(request.dueDate());
+        task.setCompleted(request.completed());
+
+        return toResponse(task);
+    }
+
+    @Transactional
+    public void delete(Long taskId) {
+        String tenantId = TenantContext.getTenant();
+        Task task = findById(taskId);
+
+        List<String> objectKeys = attachmentRepository.findObjectKeysByTaskIdAndTenantId(task.getId(), tenantId);
+
+        // cascade = ALL : supprime aussi les pièces jointes en base.
+        taskRepository.delete(task);
+
+        eventPublisher.publishEvent(new AttachmentsDeletedEvent(objectKeys));
     }
 
     public long countAllTasks() {

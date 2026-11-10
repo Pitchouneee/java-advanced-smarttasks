@@ -3,11 +3,13 @@ package fr.corentinbringer.smarttasks.project.controller;
 import fr.corentinbringer.smarttasks.project.model.ProjectCreateRequest;
 import fr.corentinbringer.smarttasks.project.model.ProjectListResponse;
 import fr.corentinbringer.smarttasks.project.model.ProjectResponse;
+import fr.corentinbringer.smarttasks.project.model.ProjectUpdateRequest;
 import fr.corentinbringer.smarttasks.project.service.ProjectService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -23,6 +25,8 @@ public class ProjectController {
     }
 
     @PostMapping
+
+    @ResponseStatus(HttpStatus.CREATED)
     public ProjectResponse create(@Valid @RequestBody ProjectCreateRequest request) {
         return projectService.create(request);
     }
@@ -30,5 +34,16 @@ public class ProjectController {
     @GetMapping("/{id}")
     public ProjectResponse findById(@PathVariable Long id) {
         return projectService.findByIdResponse(id);
+    }
+
+    @PutMapping("/{id}")
+    public ProjectResponse update(@PathVariable Long id, @Valid @RequestBody ProjectUpdateRequest request) {
+        return projectService.update(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        projectService.delete(id);
     }
 }

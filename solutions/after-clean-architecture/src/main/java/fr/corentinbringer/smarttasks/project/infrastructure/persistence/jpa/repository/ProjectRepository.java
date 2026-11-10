@@ -19,7 +19,14 @@ public interface ProjectRepository extends JpaRepository<ProjectEntity, Long> {
 
     Optional<ProjectEntity> findByIdAndTenantId(Long id, String tenantId);
 
-    long countByTenantId(String tenantId);
+    /** Projets "actifs" : au moins une tâche non terminée. */
+    @Query("""
+           SELECT count(p)
+           FROM ProjectEntity p
+           WHERE p.tenantId = :tenantId
+           AND EXISTS (SELECT t FROM TaskEntity t WHERE t.project = p AND t.completed = false)
+           """)
+    long countActiveByTenantId(@Param("tenantId") String tenantId);
 
     @Query("""
            SELECT p

@@ -14,7 +14,8 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?
 const TASK_PAGE_SIZE = 10;
 
 export default function ProjectDetail() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const params = useParams<{ projectId: string }>();
+  const projectId = Number(params.projectId); // NaN (falsy) si absent ou invalide
   const { user } = useAuth();
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
@@ -71,9 +72,9 @@ export default function ProjectDetail() {
       if (user) {
         const tasksData = await api.getTasks(projectId, page, TASK_PAGE_SIZE);
         setTasks(tasksData.content);
-        setTaskPage(tasksData.number);
-        setTaskTotalPages(tasksData.totalPages);
-        setTaskTotalElements(tasksData.totalElements);
+        setTaskPage(tasksData.page.number);
+        setTaskTotalPages(tasksData.page.totalPages);
+        setTaskTotalElements(tasksData.page.totalElements);
       } else {
         setTasks([]);
         setTaskTotalPages(0);

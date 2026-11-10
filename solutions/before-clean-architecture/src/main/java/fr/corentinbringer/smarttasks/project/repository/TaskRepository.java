@@ -21,7 +21,9 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
                t.title,
                t.description,
                t.dueDate,
-               t.completed
+               t.completed,
+               t.project.id,
+               t.createdOn
            )
            FROM Task t
            WHERE t.project.id = :projectId AND t.tenantId = :tenantId

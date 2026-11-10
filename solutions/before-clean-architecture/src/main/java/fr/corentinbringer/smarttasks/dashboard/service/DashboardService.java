@@ -3,7 +3,7 @@ package fr.corentinbringer.smarttasks.dashboard.service;
 import fr.corentinbringer.smarttasks.dashboard.model.DashboardResponse;
 import fr.corentinbringer.smarttasks.project.service.ProjectService;
 import fr.corentinbringer.smarttasks.project.service.TaskService;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,7 +18,7 @@ public class DashboardService {
     public DashboardResponse getDashboardData() {
         final int LATEST_PROJECTS_LIMIT = 5;
 
-        long activeProjectsCount = projectService.countAllProjects();
+        long activeProjectsCount = projectService.countActiveProjects();
         long totalTasksCount = taskService.countAllTasks();
         long overdueTasksCount = taskService.countOverdueTasks();
 

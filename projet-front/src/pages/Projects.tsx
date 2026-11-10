@@ -34,9 +34,9 @@ export default function Projects() {
     try {
       const data = await api.getProjects(pageToLoad, PAGE_SIZE);
       setProjects(data.content);
-      setPage(data.number);
-      setTotalPages(data.totalPages);
-      setTotalElements(data.totalElements);
+      setPage(data.page.number);
+      setTotalPages(data.page.totalPages);
+      setTotalElements(data.page.totalElements);
     } finally {
       setIsLoading(false);
     }

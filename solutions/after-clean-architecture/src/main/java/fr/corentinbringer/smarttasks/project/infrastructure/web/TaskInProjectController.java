@@ -11,7 +11,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import fr.corentinbringer.smarttasks.project.application.model.CreateTaskCommand;
 
 @RestController
 @RequestMapping("/api/projects/{projectId}/tasks")
@@ -27,15 +29,18 @@ public class TaskInProjectController {
     )
     @GetMapping
     public Page<TaskListResponse> findAll(@Parameter(description = "Project ID") @PathVariable Long projectId, Pageable pageable) {
-        return taskService.findAllByProjectId(projectId, pageable);
+        return taskService.findAllByProjectId(projectId, pageable).map(TaskListResponse::from);
     }
 
     @Operation(
             summary = "Create a new task in a project",
-            description = "“Create a new task associated with a specific project."
+            description = "Create a new task associated with a specific project."
     )
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public TaskResponse create(@Parameter(description = "Project ID") @PathVariable Long projectId, @Valid @RequestBody TaskCreateRequest request) {
-        return taskService.create(projectId, request);
+        // DTO web → commande applicative
+        CreateTaskCommand command = new CreateTaskCommand(request.title(), request.description(), request.dueDate());
+        return TaskResponse.from(taskService.create(projectId, command));
     }
 }

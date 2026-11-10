@@ -1,9 +1,9 @@
-# 07 – Monolithe vs Microservices
+# 08 – Monolithe vs Microservices
 
 Ce dernier module a pour objectif de vous donner une **vision architecturale globale**.
 Nous allons comparer deux paradigmes : **le Monolithe (modulaire)** et **les Microservices**.
 
-C’est une compétence essentielle pour comprendre pourquoi SmartTasks est construit ainsi, et comment l'architecture "Clean" du module précédent prépare l'avenir.
+C’est une compétence essentielle pour comprendre pourquoi SmartTasks est construit ainsi, et comment l'architecture "Clean" du module 06 prépare l'avenir.
 
 ---
 
@@ -44,9 +44,11 @@ Une architecture **microservices** découpe l'application en services autonomes,
 
 ### Exemples pour SmartTasks :
 
-* `auth-service` (Gère JWT)
 * `project-service` (Gère Projets & Tâches)
-* `file-service` (Gère MinIO)
+* `file-service` (Gère le stockage S3)
+* `notification-service` (Envoie les e-mails de rappel)
+
+> 🔐 **Et l'authentification ?** Pas de `auth-service` maison : comme au module 03, ce n'est **pas** notre application qui émet les tokens, c'est un **fournisseur d'identité** (Google, ou Keycloak, Auth0, Microsoft Entra ID...). Chaque service est un *Resource Server* : il vérifie lui-même la signature du JWT avec les clés publiques du fournisseur, sans appeler personne. Écrire son propre service d'authentification (stockage des mots de passe, réinitialisation, double authentification...) est un projet en soi, et une source classique de failles.
 
 ### ✨ Avantages
 
@@ -89,20 +91,74 @@ On crée juste une nouvelle implémentation de `ProjectPort` :
 ```java
 @Component
 public class ProjectHttpAdapter implements ProjectPort {
-    
-    private final RestClient restClient; // Client HTTP
+
+    private final RestClient restClient; // Client HTTP synchrone de Spring
+
+    public ProjectHttpAdapter(@Value("${services.project.url}") String projectServiceUrl) {
+        this.restClient = RestClient.builder()
+                .baseUrl(projectServiceUrl)          // ex : http://project-service
+                .build();
+    }
 
     @Override
-    public Optional<Project> findById(Long id) {
+    public Optional<Project> findByIdAndTenantId(Long id, String tenantId) {
         // Au lieu de faire du SQL, on appelle l'autre microservice
-        return restClient.get()
-            .uri("http://project-service/api/projects/" + id)
-            .retrieve()
-            .body(Project.class);
+        try {
+            ProjectResponse response = restClient.get()
+                    .uri("/api/projects/{id}", id)  // variable d'URI : encodée par Spring
+                    .retrieve()                      // lève une exception sur 4xx / 5xx
+                    .body(ProjectResponse.class);    // le contrat REST du service distant
+
+            // L'adapter traduit le contrat distant en objet du domaine
+            return Optional.ofNullable(response)
+                    .map(r -> new Project(r.id(), tenantId, r.name(), r.createdOn()));
+
+        } catch (HttpClientErrorException.NotFound e) {
+            return Optional.empty();                 // 404 distant = « pas trouvé » pour le métier
+        }
     }
+
+    // ... les autres méthodes du port (save, findAll...) suivent le même principe
 }
 
 ```
+
+Ce qui change par rapport à l'adapter JPA :
+* **La signature reste celle du port** (`findByIdAndTenantId`) : c'est tout l'intérêt, le `TaskService` ne voit aucune différence.
+* **Le `tenantId` n'est pas envoyé** : le `project-service` le déduit lui-même du JWT, comme notre monolithe. Encore faut-il lui transmettre le token de l'utilisateur (*token relay*, voir ci-dessous) : sans lui, l'appel répondra `401`.
+* **On désérialise le DTO distant** (`ProjectResponse`), pas le record du domaine : le JSON ne contient pas le `tenantId`, et le domaine ne doit pas dépendre du format d'un autre service.
+* **Les erreurs réseau deviennent des cas métier** : un `404` distant devient `Optional.empty()`. Un timeout ou un `500`, eux, remontent en exception : c'est la « latence et l'échec » vus plus haut.
+
+> 💡 Avec Spring Boot 4, on peut aussi injecter un `RestClient.Builder` préconfiguré (traces, métriques) en ajoutant `spring-boot-starter-restclient`.
+
+### 🔁 Propager l'identité : le *token relay*
+
+Dans le monolithe, le tenant est lu dans le JWT par le `TenantFilter`. Quand le `task-service` appelle le `project-service`, ce dernier doit **lui aussi** savoir pour quel utilisateur il travaille, sinon il répond `401` (pas de token) ou, pire, renvoie les données sans filtre.
+
+**Appel synchrone (HTTP)** : on retransmet le JWT de l'utilisateur, tel quel. Le service appelé le vérifie et en déduit le tenant (le `sub`), exactement comme s'il était appelé par le front :
+
+```java
+this.restClient = RestClient.builder()
+        .baseUrl(projectServiceUrl)
+        .requestInterceptor((request, body, execution) -> {
+            // Token relay : on recopie le JWT de la requête en cours
+            if (SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken auth) {
+                request.getHeaders().setBearerAuth(auth.getToken().getTokenValue());
+            }
+            return execution.execute(request, body);
+        })
+        .build();
+```
+
+On ne transmet **pas** le `tenantId` dans un header maison (`X-Tenant-ID`) : le service appelé devrait alors faire confiance à l'appelant, et n'importe qui ayant accès au réseau interne pourrait se faire passer pour un autre tenant (même raisonnement que dans `api-spec.md`, « Identification du tenant »).
+
+**Appel asynchrone (message RabbitMQ / Kafka)** : il n'y a plus de requête HTTP ni de token (et le token aura peut-être expiré quand le message sera traité). Le `tenantId` est alors écrit **dans le message** :
+
+```java
+public record TaskDeletedEvent(String tenantId, Long taskId, List<String> objectKeys) {}
+```
+
+Le consommateur exécute son traitement avec ce tenant. Ici, on fait confiance au message parce que seuls nos services peuvent publier dans le broker (droits d'accès sur la file) : c'est la sécurité du broker qui garantit l'origine.
 
 On peut également utiliser Feign dans l'environnement Spring Boot.
 
@@ -119,7 +175,7 @@ Si SmartTasks devenait le nouveau Trello, voici l'architecture :
              │
              ▼
     +------------------+
-    |   API Gateway    |  (Route les requêtes, gère l'auth)
+    |   API Gateway    |  (Route les requêtes, rejette tôt les JWT invalides)
     +--------+---------+
              │
     +--------+------------+------------------+
@@ -131,9 +187,13 @@ Si SmartTasks devenait le nouveau Trello, voici l'architecture :
 +--------------+   +-------+------+   +------+-------+
                            │                 ▲
                            ▼                 │
-                        MinIO             RabbitMQ (Async)
+                      S3 (RustFS)         RabbitMQ (Async)
 
 ```
+
+---
+
+Le JWT est émis par le fournisseur d'identité (Google), **hors** de ce schéma. La Gateway peut le vérifier pour rejeter tôt les requêtes invalides, mais chaque service le vérifie **aussi** (défense en profondeur) : un service ne doit pas faire confiance à une requête au seul motif qu'elle vient du réseau interne.
 
 ---
 
@@ -144,19 +204,22 @@ Vous êtes architecte. On vous demande d'extraire la gestion des fichiers (`Atta
 1. **Impact BDD** : Que devient la table `attachments` ? Doit-elle rester liée aux tables `tasks` par une clé étrangère ?
 <details>
 <summary>Voir la réponse</summary>
+
 Non, intégrité référentielle impossible entre 2 bases. On stocke juste l'ID.
 </details>
 
-3. **Communication** : Comment `TaskService` vérifie qu'un fichier existe avant de le lier ?
+2. **Communication** : Comment `TaskService` vérifie qu'un fichier existe avant de le lier ?
 <details>
 <summary>Voir la réponse</summary>
+
 Appel synchrone (REST/Feign) vers `storage-service`.
 </details>
 
-4. **Nettoyage** : Si on supprime une tâche, comment supprimer les fichiers associés ?
+3. **Nettoyage** : Si on supprime une tâche, comment supprimer les fichiers associés ?
 <details>
 <summary>Voir la réponse</summary>
-Appel ssynchrone (Event Driven). `TaskService` publie un événement `TaskDeletedEvent` dans un broker (RabbitMQ/Kafka). Le `storage-service` écoute et supprime les fichiers.
+
+Appel asynchrone (Event Driven). `TaskService` publie un événement `TaskDeletedEvent` dans un broker (RabbitMQ/Kafka). Le `storage-service` écoute et supprime les fichiers.
 </details>
 
 ---
@@ -169,7 +232,7 @@ Félicitations ! 🎉 Vous avez traversé les concepts clés du développement B
 2. **JPA & Relations** (La persistance)
 3. **Security & OAuth2** (La protection)
 4. **Multi-Tenancy** (L'isolation SaaS)
-5. **MinIO** (Le stockage Cloud)
+5. **Stockage objet S3** (Le stockage Cloud)
 6. **Clean Architecture** (La maintenabilité)
 7. **Microservices** (La scalabilité)
 

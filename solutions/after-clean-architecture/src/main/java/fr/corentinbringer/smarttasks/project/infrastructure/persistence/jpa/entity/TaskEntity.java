@@ -6,8 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Set;
 
 @Entity
@@ -32,7 +32,8 @@ public class TaskEntity {
     @Column(length = 100, nullable = false)
     private String title;
 
-    @Lob
+    // "text" plutôt que @Lob : sur PostgreSQL, @Lob crée une colonne oid (Large Object hors table)
+    @Column(columnDefinition = "text")
     private String description;
 
     private LocalDate dueDate;
@@ -40,14 +41,11 @@ public class TaskEntity {
     @Column(nullable = false)
     private boolean completed = false;
 
+    // Rempli par le domaine (le service fixe la date de création), recopié par le mapper.
+    // Pas de @PrePersist ici : une seule source de vérité pour cette donnée métier.
     @Column(updatable = false, nullable = false)
-    private LocalDateTime createdOn;
+    private Instant createdOn;
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<AttachmentEntity> attachments;
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdOn = LocalDateTime.now();
-    }
 }
