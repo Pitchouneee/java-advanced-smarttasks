@@ -132,7 +132,7 @@ docker compose up -d
 |--------|-----|-----|
 | PostgreSQL | `localhost:5432`, base `smarttasks` | `smart` / `smart` |
 | RustFS : API S3 | http://localhost:9000 | `rustfsadmin` / `rustfsadmin` |
-| RustFS : console web | http://localhost:9001 | `rustfsadmin` / `rustfsadmin` |
+| RustFS : console web | http://localhost:9001/rustfs/console/ | `rustfsadmin` / `rustfsadmin` |
 
 `docker compose ps` doit afficher les deux conteneurs `smarttasks-postgres` et `smarttasks-rustfs` à l'état *running*.
 

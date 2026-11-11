@@ -4,6 +4,10 @@ spring:
   threads:
     virtual:
       enabled: true   # une requête = un thread virtuel (Java 21+, voir chap. 03 §4.4)
+  servlet:
+    multipart:
+      max-file-size: 10MB      # défaut Spring : 1MB (au-delà : 413)
+      max-request-size: 10MB
   datasource:
     url: jdbc:postgresql://localhost:5432/smarttasks
     username: smart

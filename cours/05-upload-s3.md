@@ -30,7 +30,7 @@ Assurez-vous que le conteneur `smarttasks-rustfs` est lancé (`docker compose up
 | | |
 |---|---|
 | API S3 (utilisée par Spring) | `http://localhost:9000` |
-| Console web | [http://localhost:9001](http://localhost:9001) |
+| Console web | [http://localhost:9001/rustfs/console/](http://localhost:9001/rustfs/console/) |
 | Identifiants | `rustfsadmin` / `rustfsadmin` |
 
 Vocabulaire S3 :
@@ -75,6 +75,12 @@ Le SDK AWS est découpé en modules (S3, SQS, DynamoDB...). Un **BOM** (*Bill Of
 ### 2.2. Propriétés (`application.yaml`)
 
 ```yaml
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB      # taille max d'un fichier (défaut : 1MB)
+      max-request-size: 10MB   # taille max de la requête entière
+
 storage:
   s3:
     endpoint: http://localhost:9000
@@ -457,14 +463,14 @@ Trois détails importants :
 |---|---|---|---|
 | Fichier vide | `InvalidRequestException` | `400 Bad Request` | le client |
 | Tâche inexistante ou d'un autre tenant | `ResourceNotFoundException` | `404 Not Found` | le client |
-| Fichier trop gros (> 1 Mo par défaut) | `MaxUploadSizeExceededException` | `413 Content Too Large` | le client |
+| Fichier trop gros (> `max-file-size`, 10 Mo ici) | `MaxUploadSizeExceededException` | `413 Content Too Large` | le client |
 | S3 injoignable, objet absent du bucket | `StorageException` | `500 Internal Server Error` | le serveur |
 
 > ⚠️ **Erreur classique** : tout attraper avec `catch (Exception e)` et relancer une `ResourceNotFoundException`. L'API répond alors `404` quand S3 est en panne. Le front affiche « introuvable », l'utilisateur pense que son fichier a disparu, et l'équipe d'exploitation ne voit aucune erreur `500` dans ses tableaux de bord.
 >
 > Règle : **4xx = le client peut corriger sa requête, 5xx = c'est au serveur de se réparer.**
 
-> 💡 La taille maximale d'un fichier se règle dans `application.yaml` : `spring.servlet.multipart.max-file-size: 10MB` (et `max-request-size`).
+> 💡 Sans le réglage `spring.servlet.multipart` du §2.2, Spring refuse tout fichier de plus de **1 Mo** : une simple photo de téléphone déclenche alors un `413`.
 >
 > ✅ Rien à coder pour le `413` : `MaxUploadSizeExceededException` fait partie des erreurs déjà traitées par `ResponseEntityExceptionHandler`, dont hérite notre `ApiExceptionHandler` (module 01, §9.3).
 
@@ -541,7 +547,7 @@ public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable Long
 * **Body** : `form-data`, clé `file` (type File).
 
 
-4. Vérifiez dans la console RustFS ([http://localhost:9001](http://localhost:9001), bucket `smarttasks`) que le fichier est apparu (avec un nom UUID).
+4. Vérifiez dans la console RustFS ([http://localhost:9001/rustfs/console/](http://localhost:9001/rustfs/console/), bucket `smarttasks`) que le fichier est apparu (avec un nom UUID).
 5. Vérifiez dans PostgreSQL que la ligne est créée dans `attachments`.
 6. Téléchargez le fichier via l'API.
 7. **Cas d'erreur** :
